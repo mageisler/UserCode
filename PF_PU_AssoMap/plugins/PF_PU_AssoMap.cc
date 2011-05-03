@@ -20,6 +20,7 @@
 // system include files
 #include <memory>
 #include <vector>
+#include <string>
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -90,10 +91,11 @@ class PF_PU_AssoMap : public edm::EDProducer {
 
       edm::InputTag input_TrackCollection_;
       edm::InputTag input_VertexCollection_;
-      edm::InputTag input_GsfElectronCollection_;
+      string input_GsfElectronCollection_;
       bool input_VertexQuality_;
       double input_VertexMinNdof_;
       bool input_ClosestVertex_;
+      bool input_UseGsfElectronVertex_;
 };
 
 //
@@ -107,13 +109,15 @@ PF_PU_AssoMap::PF_PU_AssoMap(const edm::ParameterSet& iConfig)
 
   	input_VertexCollection_= iConfig.getParameter<InputTag>("VertexCollection");
 
-  	input_GsfElectronCollection_= iConfig.getParameter<InputTag>("GsfElectronCollection");
+  	input_GsfElectronCollection_= iConfig.getUntrackedParameter<string>("GsfElectronCollection","default");
 
   	input_VertexQuality_= iConfig.getUntrackedParameter<bool>("VertexQuality", true);
 
   	input_VertexMinNdof_= iConfig.getUntrackedParameter<double>("VertexMinNdof", 4.);
 
   	input_ClosestVertex_= iConfig.getUntrackedParameter<bool>("ClosestVertex", true);
+
+  	input_UseGsfElectronVertex_= iConfig.getUntrackedParameter<bool>("UseGsfElectronVertex", true);
 
 
 	produces<TrackVertexAssMap>();
@@ -231,11 +235,18 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
           trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
 
 	}
+	
+	//leave if no input for gsfelectroncollection is set
+ 	if (input_GsfElectronCollection_=="default"){
+	  
+	  iEvent.put( trackvertexass );
+	  return;
 
+	}
 
 	//######################### part of the gsf electron collection association ###############################
  
-	//get the input particle flow collection
+	//get the input gsfelectron collection
   	Handle<GsfElectronCollection> gsfcoll;
   	iEvent.getByLabel(input_GsfElectronCollection_,gsfcoll);
 
@@ -298,10 +309,12 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
    	  }
 		  
 	  double dzmin = 10000;
-	  double gsfelectron_z = (*gsfelecref).trackPositionAtVtx().z();
 	  unsigned iVertex = 0;
-
           unsigned index_vtx = 0;
+
+	  double gsfelectron_z;
+	  if (input_UseGsfElectronVertex_) gsfelectron_z = (*gsfelecref).trackPositionAtVtx().z();
+ 	    else gsfelectron_z = (*trackref).referencePoint().z();
           
 	  //loop over all vertices with a good quality in the vertex collection
           for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
