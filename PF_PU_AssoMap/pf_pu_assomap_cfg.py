@@ -14,16 +14,18 @@ process.maxEvents = cms.untracked.PSet(
 
 process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
           TrackCollection = cms.InputTag('generalTracks'),
-          GsfElectronCollection = cms.InputTag('gsfElectrons'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
+          GsfElectronCollection = cms.untracked.string('gsfElectrons'),
           VertexQuality = cms.untracked.bool(True),
           VertexMinNdof = cms.untracked.double(4.),
           ClosestVertex = cms.untracked.bool(True),
+          UseGsfElectronVertex = cms.untracked.bool(True),
 )
 
 process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
           VertexTrackAssociationMap = cms.InputTag('Tracks2Vertex'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
+          AssociationQuality = cms.untracked.bool(False),
 )
 
 process.out = cms.OutputModule("PoolOutputModule",
