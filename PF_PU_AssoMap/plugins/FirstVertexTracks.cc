@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Apr 11 17:36:26 CEST 2011
-// $Id$
+// $Id: FirstVertexTracks.cc,v 1.1 2011/04/19 13:39:32 mgeisler Exp $
 //
 //
 
@@ -79,6 +79,7 @@ class FirstVertexTracks : public edm::EDProducer {
 
       InputTag input_VertexTrackAssociationMap_;
       InputTag input_VertexCollection_;
+      bool input_AssociationQuality_;
 };
 
 //
@@ -100,6 +101,8 @@ FirstVertexTracks::FirstVertexTracks(const edm::ParameterSet& iConfig)
   	input_VertexTrackAssociationMap_ = iConfig.getParameter<InputTag>("VertexTrackAssociationMap");
 
   	input_VertexCollection_= iConfig.getParameter<InputTag>("VertexCollection");
+
+  	input_AssociationQuality_= iConfig.getUntrackedParameter<bool>("AssociationQuality", true);
 
 
 	produces<TrackCollection>();
@@ -151,7 +154,7 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	    //get the tracks associated to the first vertex and store them in a track collection
 	    for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
 
-	      if (trckcoll[trckcoll_ite].second>0.) firstvertextracks->push_back(*(trckcoll[trckcoll_ite].first));
+	      if (!(input_AssociationQuality_) || (trckcoll[trckcoll_ite].second>0.)) firstvertextracks->push_back(*(trckcoll[trckcoll_ite].first));
 
 	    }
 
