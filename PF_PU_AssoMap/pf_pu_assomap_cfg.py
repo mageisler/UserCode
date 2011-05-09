@@ -23,6 +23,8 @@ process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
 )
 
 process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
+          TrackCollection = cms.untracked.bool(True),
+          GsfElectronCollection = cms.untracked.bool(False),
           VertexTrackAssociationMap = cms.InputTag('Tracks2Vertex'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
           AssociationQuality = cms.untracked.bool(False),
