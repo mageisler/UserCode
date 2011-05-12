@@ -45,7 +45,6 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 
-
 //
 // class declaration
 //
@@ -68,6 +67,7 @@ class FirstVertexTracks : public edm::EDProducer {
    private:
       virtual void beginJob() ;
       virtual void produce(edm::Event&, const edm::EventSetup&);
+      virtual bool TrackMatch(reco::TrackRef,reco::TrackRef);
       virtual void endJob() ;
       
       virtual void beginRun(edm::Run&, edm::EventSetup const&);
@@ -79,8 +79,8 @@ class FirstVertexTracks : public edm::EDProducer {
 
       InputTag input_VertexTrackAssociationMap_;
       InputTag input_VertexCollection_;
-      bool input_generalTracksCollection_;
-      bool input_GsfElectronCollection_;
+      string input_generalTracksCollection_;
+      string input_GsfElectronCollection_;
       bool input_AssociationQuality_;
 };
 
@@ -104,9 +104,9 @@ FirstVertexTracks::FirstVertexTracks(const edm::ParameterSet& iConfig)
 
   	input_VertexCollection_= iConfig.getParameter<InputTag>("VertexCollection");
 
-  	input_generalTracksCollection_= iConfig.getUntrackedParameter<bool>("TrackCollection", true);
+  	input_generalTracksCollection_= iConfig.getUntrackedParameter<string>("TrackCollection","default");
 
-  	input_GsfElectronCollection_= iConfig.getUntrackedParameter<bool>("GsfElectronCollection", true);
+  	input_GsfElectronCollection_= iConfig.getUntrackedParameter<string>("GsfElectronCollection","default");
 
   	input_AssociationQuality_= iConfig.getUntrackedParameter<bool>("AssociationQuality", true);
 
@@ -148,7 +148,7 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
         const VertexRef firstvertexref(vtxcoll,0);
 	
 	//look if an input for generalTrackCollection is set
- 	if (input_generalTracksCollection_){
+ 	if (input_generalTracksCollection_!="default"){
 
 	  //loop over all vertices in the association map
           for (TrackVertexAssMap::const_iterator assomap_ite = assomap->begin(); assomap_ite != assomap->end(); assomap_ite++){
@@ -160,12 +160,42 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
  
   	      const TrackQualityPairVector trckcoll = assomap_ite->val;
 
+	      TrackRef GTtrackref;
+
 	      //get the tracks associated to the first vertex and store them in a track collection
 	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
 
+		bool isGtMatched = false;
+		GTtrackref = trckcoll[trckcoll_ite].first;
+		
+		//if input Collection is not generalTracks loop over all tracks of the input collection to find the correct general Track
+	  	if (input_generalTracksCollection_!="generalTracks"){
+ 
+	  	  //get the input vertex collection
+  	  	  Handle<TrackCollection> input_trckcoll;
+  	  	  iEvent.getByLabel(input_generalTracksCollection_,input_trckcoll);
+	          
+		  TrackRef input_trackref;
+		  unsigned index_input_trck = 0;
+
+  	  	  for(TrackCollection::const_iterator input_trckcoll_ite = input_trckcoll->begin(); input_trckcoll_ite!=input_trckcoll->end(); input_trckcoll_ite++,index_input_trck++){
+
+		    input_trackref = TrackRef(input_trckcoll,index_input_trck);
+
+   	  	    if(TrackMatch(GTtrackref,input_trackref)){
+
+		      isGtMatched = true;
+		      break;
+	 	   	      
+		    } 
+
+		  }
+
+	  	} else isGtMatched = true;
+
 		//since every general Track has a quality >= -1. no loop over all general Tracks necessary
-	 	if (trckcoll[trckcoll_ite].second>=-1.)  
-	          if (!(input_AssociationQuality_) || (trckcoll[trckcoll_ite].second>0.)) firstvertextracks->push_back(*(trckcoll[trckcoll_ite].first));
+	 	if (trckcoll[trckcoll_ite].second>=-1. && isGtMatched)  
+	          if (!(input_AssociationQuality_) || (trckcoll[trckcoll_ite].second>0.)) firstvertextracks->push_back(*GTtrackref);
 
 	      }
 
@@ -176,7 +206,7 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	}
 	
 	//look if an input for GsfElectronCollection is set
- 	if (input_GsfElectronCollection_!){	
+ 	if (input_GsfElectronCollection_!="default"){	
 
 	  //loop over all vertices in the association map
           for (TrackVertexAssMap::const_iterator assomap_ite = assomap->begin(); assomap_ite != assomap->end(); assomap_ite++){
@@ -204,6 +234,20 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	iEvent.put( firstvertextracks );
  
+}
+
+bool 
+FirstVertexTracks::TrackMatch(reco::TrackRef trackref1,reco::TrackRef trackref2)
+{
+
+	return (
+	  (*trackref1).eta() == (*trackref2).eta() &&
+	  (*trackref1).phi() == (*trackref2).phi() &&
+	  (*trackref1).chi2() == (*trackref2).chi2() &&
+	  (*trackref1).ndof() == (*trackref2).ndof() &&
+	  (*trackref1).p() == (*trackref2).p()
+	);
+
 }
 
 
