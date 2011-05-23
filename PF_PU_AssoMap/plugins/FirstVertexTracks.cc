@@ -111,7 +111,8 @@ FirstVertexTracks::FirstVertexTracks(const edm::ParameterSet& iConfig)
   	input_AssociationQuality_= iConfig.getUntrackedParameter<bool>("AssociationQuality", true);
 
 
-	produces<TrackCollection>();
+	if (input_generalTracksCollection_!="default") produces<TrackCollection>("GtFirstVertexTrackCollection");
+	if (input_GsfElectronCollection_!="default") produces<TrackCollection>("GsfFirstVertexTrackCollection");
   
 }
 
@@ -134,7 +135,8 @@ void
 FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
 
-	auto_ptr<TrackCollection> firstvertextracks(new TrackCollection() );
+	auto_ptr<TrackCollection> gT_firstvertextracks(new TrackCollection() );
+	auto_ptr<TrackCollection> gsf_firstvertextracks(new TrackCollection() );
   
 	//get the input vertex<->track association map
   	Handle<TrackVertexAssMap> assomap;
@@ -194,14 +196,16 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  	} else isGtMatched = true;
 
 		//since every general Track has a quality >= -1. no loop over all general Tracks necessary
-	 	if (trckcoll[trckcoll_ite].second>=-1. && isGtMatched)  
-	          if (!(input_AssociationQuality_) || (trckcoll[trckcoll_ite].second>0.)) firstvertextracks->push_back(*GTtrackref);
+	 	if (trckcoll[trckcoll_ite].second>=-1.5 && isGtMatched)  
+	          if (!(input_AssociationQuality_) || (trckcoll[trckcoll_ite].second>0.)) gT_firstvertextracks->push_back(*GTtrackref);
 
 	      }
 
  	    }
 
 	  }
+
+	  iEvent.put( gT_firstvertextracks,"GtFirstVertexTrackCollection" );
 	
 	}
 	
@@ -222,7 +226,7 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
 
 		//since only a GsfElectron has a quality = -2. no loop over all GsfElectrons necessary
-	        if (trckcoll[trckcoll_ite].second==-2.) firstvertextracks->push_back(*(trckcoll[trckcoll_ite].first));
+	        if (trckcoll[trckcoll_ite].second==-2.) gsf_firstvertextracks->push_back(*(trckcoll[trckcoll_ite].first));
 
 	      }
 
@@ -230,9 +234,9 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
  	  }
 
-	}
+	  iEvent.put( gsf_firstvertextracks,"GsfFirstVertexTrackCollection" );
 
-	iEvent.put( firstvertextracks );
+	}
  
 }
 
