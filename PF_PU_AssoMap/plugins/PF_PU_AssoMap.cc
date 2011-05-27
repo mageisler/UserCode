@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id$
+// $Id: PF_PU_AssoMap.cc,v 1.3 2011/05/03 16:15:23 mgeisler Exp $
 //
 //
 
@@ -74,6 +74,10 @@ class PF_PU_AssoMap : public edm::EDProducer {
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
       typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
+      typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
+
+      typedef vector<pair<TrackRef, float> > TrackQualityPairVector;
+      typedef pair<TrackRef, float> TrackQualityPair;
 
    private:
       virtual void beginJob() ;
@@ -96,6 +100,7 @@ class PF_PU_AssoMap : public edm::EDProducer {
       double input_VertexMinNdof_;
       bool input_ClosestVertex_;
       bool input_UseGsfElectronVertex_;
+      bool input_UseCtfAssVertexForGsf_;
 };
 
 //
@@ -119,8 +124,10 @@ PF_PU_AssoMap::PF_PU_AssoMap(const edm::ParameterSet& iConfig)
 
   	input_UseGsfElectronVertex_= iConfig.getUntrackedParameter<bool>("UseGsfElectronVertex", true);
 
+  	input_UseCtfAssVertexForGsf_= iConfig.getUntrackedParameter<bool>("UseCtfAssVertexForGsf", false);
 
 	produces<TrackVertexAssMap>();
+	if (input_GsfElectronCollection_!="default") produces<GsfVertexAssMap>("GsfVertexAssociationMap");
   
 }
 
@@ -176,7 +183,7 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
             const VertexRef vertexref(vtxcoll,index_vtx);
 
-	    //check only those vertices with a goor quality
+	    //check only those vertices with a good quality
 	    if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
  
 	        //get the most probable vertex for the track
@@ -235,20 +242,21 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
           trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
 
 	}
+	  
+	iEvent.put( trackvertexass );
 	
 	//leave if no input for gsfelectroncollection is set
- 	if (input_GsfElectronCollection_=="default"){
-	  
-	  iEvent.put( trackvertexass );
-	  return;
+ 	if (input_GsfElectronCollection_=="default") return;
 
-	}
+  	auto_ptr<GsfVertexAssMap> gsfvertexass(new GsfVertexAssMap() );
 
 	//######################### part of the gsf electron collection association ###############################
  
 	//get the input gsfelectron collection
   	Handle<GsfElectronCollection> gsfcoll;
   	iEvent.getByLabel(input_GsfElectronCollection_,gsfcoll);
+
+	GsfElectronRef gsfelectronref;
 
   	//choose the closest vertex in z & bestweight set to -2 for all gsfelectrons
 	
@@ -257,8 +265,8 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	//loop over all tracks in the track collection
   	for(GsfElectronCollection::const_iterator gsf_ite= gsfcoll->begin(); gsf_ite!=gsfcoll->end(); ++gsf_ite,++index_gsf) {
 
-	  const GsfElectronRef gsfelecref(gsfcoll,index_gsf);
-	  trackref = (*gsfelecref).closestCtfTrackRef();
+	  gsfelectronref = GsfElectronRef(gsfcoll,index_gsf);
+	  trackref = (*gsfelectronref).closestCtfTrackRef();
 
 	  //if gsfelectron's closestCtfTrack is a null reference 
    	  if (trackref.isNull()){
@@ -307,42 +315,68 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       	    trackref = TrackRef(trkcoll,ibest);
 
    	  }
-		  
-	  double dzmin = 10000;
-	  unsigned iVertex = 0;
-          unsigned index_vtx = 0;
 
-	  double gsfelectron_z;
-	  if (input_UseGsfElectronVertex_) gsfelectron_z = (*gsfelecref).trackPositionAtVtx().z();
- 	    else gsfelectron_z = (*trackref).referencePoint().z();
+	  if (!input_UseCtfAssVertexForGsf_){
+
+	    double dzmin = 10000;
+	    unsigned iVertex = 0;
+            unsigned index_vtx = 0;
+
+  	    double gsfelectron_z;
+	    if (input_UseGsfElectronVertex_) gsfelectron_z = (*gsfelectronref).trackPositionAtVtx().z();
+       	      else gsfelectron_z = (*trackref).referencePoint().z();
           
-	  //loop over all vertices with a good quality in the vertex collection
-          for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
+	    //loop over all vertices with a good quality in the vertex collection
+            for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
 
-            const VertexRef vertexref(vtxcoll,index_vtx);
+              const VertexRef vertexref(vtxcoll,index_vtx);
 
-	    if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
+	      if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
  
-	      //find and store the closest vertex in z
-              double dz = fabs(gsfelectron_z - (*vertexref).z());
-              if(dz<dzmin) {
-                dzmin = dz; 
-                iVertex = index_vtx;
+ 	        //find and store the closest vertex in z
+                double dz = fabs(gsfelectron_z - (*vertexref).z());
+                if(dz<dzmin) {
+                  dzmin = dz; 
+                  iVertex = index_vtx;
+                }
+
               }
-
-            }
 	
-          }
+            }
 
-	  bestvertexref = VertexRef(vtxcoll,iVertex);	
+	    bestvertexref = VertexRef(vtxcoll,iVertex);
+	  } else {
+
+	    //loop over all vertices in the general tracks association map
+            for (TrackVertexAssMap::const_iterator assomap_ite = trackvertexass->begin(); assomap_ite != trackvertexass->end(); assomap_ite++){
+
+	      const VertexRef assomap_vertexref = assomap_ite->key; 
+  	      const TrackQualityPairVector trckcoll = assomap_ite->val;
+
+	      TrackRef GTtrackref;
+
+	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
+		
+		GTtrackref = trckcoll[trckcoll_ite].first;
+
+  	        if (GTtrackref==trackref){
+                  bestvertexref = assomap_vertexref;
+		  break;
+		}
+
+	      }
+
+	    }
+
+	  }	
           bestweight = -2.;
 
 	  //insert the best vertex, gsfelectron and the quality of this association in the map
-          trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
+          gsfvertexass->insert(bestvertexref,make_pair(gsfelectronref,bestweight));
 	
 	}
 
-	iEvent.put( trackvertexass );
+	iEvent.put( gsfvertexass,"GsfVertexAssociationMap" );
 }
 
 float 
