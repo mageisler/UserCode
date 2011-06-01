@@ -20,6 +20,7 @@ process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
           VertexMinNdof = cms.untracked.double(4.),
           ClosestVertex = cms.untracked.bool(True),
           UseGsfElectronVertex = cms.untracked.bool(True),
+	  UseCtfAssVertexForGsf ) cms.untracked.bool(False),
 )
 
 process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
@@ -27,7 +28,6 @@ process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
           GsfElectronCollection = cms.untracked.string('gsfElectrons'),
           VertexTrackAssociationMap = cms.InputTag('Tracks2Vertex'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
-          AssociationQuality = cms.untracked.bool(False),
 )
 
 process.out = cms.OutputModule("PoolOutputModule",
