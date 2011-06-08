@@ -13,8 +13,8 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
-          TrackCollection = cms.InputTag('generalTracks'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
+          TrackCollection = cms.untracked.string('generalTracks'),
           GsfElectronCollection = cms.untracked.string('gsfElectrons'),
           VertexQuality = cms.untracked.bool(True),
           VertexMinNdof = cms.untracked.double(4.),
