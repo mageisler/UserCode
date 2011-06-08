@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.5 2011/06/01 13:16:16 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.6 2011/06/08 09:15:05 mgeisler Exp $
 //
 //
 
@@ -322,7 +322,30 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
    	  }//END OF if gsfelectron's closestCtfTrack is a null reference
 		  
-	  if (!input_UseCtfAssVertexForGsf_){
+	  if ((input_UseCtfAssVertexForGsf_) && (input_TrackCollection_!="default")){
+
+	    //loop over all vertices in the general tracks association map
+            for (TrackVertexAssMap::const_iterator assomap_ite = trackvertexass->begin(); assomap_ite != trackvertexass->end(); assomap_ite++){
+
+	      const VertexRef assomap_vertexref = assomap_ite->key; 
+  	      const TrackQualityPairVector trckcoll = assomap_ite->val;
+
+	      TrackRef GTtrackref;
+
+	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
+		
+		GTtrackref = trckcoll[trckcoll_ite].first;
+
+  	        if (GTtrackref==trackref){
+                  bestvertexref = assomap_vertexref;
+		  break;
+		}
+
+	      }
+
+	    }
+
+	  } else {
 
 	    double dzmin = 10000;
 	    unsigned iVertex = 0;
@@ -351,28 +374,6 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
             }
 
 	    bestvertexref = VertexRef(vtxcoll,iVertex);
-	  } else {
-
-	    //loop over all vertices in the general tracks association map
-            for (TrackVertexAssMap::const_iterator assomap_ite = trackvertexass->begin(); assomap_ite != trackvertexass->end(); assomap_ite++){
-
-	      const VertexRef assomap_vertexref = assomap_ite->key; 
-  	      const TrackQualityPairVector trckcoll = assomap_ite->val;
-
-	      TrackRef GTtrackref;
-
-	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
-		
-		GTtrackref = trckcoll[trckcoll_ite].first;
-
-  	        if (GTtrackref==trackref){
-                  bestvertexref = assomap_vertexref;
-		  break;
-		}
-
-	      }
-
-	    }
 
 	  }	
           bestweight = -2.;
