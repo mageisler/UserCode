@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.4 2011/05/27 09:58:05 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.5 2011/06/01 13:16:16 mgeisler Exp $
 //
 //
 
@@ -90,8 +90,8 @@ class PF_PU_AssoMap : public edm::EDProducer {
 
       // ----------member data ---------------------------
 
-      edm::InputTag input_TrackCollection_;
-      edm::InputTag input_VertexCollection_;
+      InputTag input_VertexCollection_;
+      string input_TrackCollection_;
       string input_GsfElectronCollection_;
       bool input_VertexQuality_;
       double input_VertexMinNdof_;
@@ -107,9 +107,9 @@ PF_PU_AssoMap::PF_PU_AssoMap(const edm::ParameterSet& iConfig)
 { 
    //now do what ever initialization is needed
 
-  	input_TrackCollection_ = iConfig.getParameter<InputTag>("TrackCollection");
-
   	input_VertexCollection_= iConfig.getParameter<InputTag>("VertexCollection");
+
+  	input_TrackCollection_ = iConfig.getUntrackedParameter<string>("TrackCollection","default");
 
   	input_GsfElectronCollection_= iConfig.getUntrackedParameter<string>("GsfElectronCollection","default");
 
@@ -151,102 +151,107 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   	iEvent.getByLabel(input_VertexCollection_,vtxcoll);
 
 	//######################### part of the general track collection association ###############################
+	
+	//look if an input for trackcollection is set
+ 	if (input_TrackCollection_!="default"){
 
-  	auto_ptr<TrackVertexAssMap> trackvertexass(new TrackVertexAssMap() );
-  
-	//get the input track collection
-  	Handle<TrackCollection> trkcoll;
-  	iEvent.getByLabel(input_TrackCollection_,trkcoll);
+     	  auto_ptr<TrackVertexAssMap> trackvertexass(new TrackVertexAssMap() );
+    
+	  //get the input track collection
+  	  Handle<TrackCollection> trkcoll;
+  	  iEvent.getByLabel(input_TrackCollection_,trkcoll);
 	  
-	//variables for the best vertex for the track
-	float bestweight;
-   	VertexRef bestvertexref;
-	TrackRef trackref;
+	  //variables for the best vertex for the track
+	  float bestweight;
+   	  VertexRef bestvertexref;
+	  TrackRef trackref;
 
-	//get the first vertex
-        const VertexRef firstvertexref(vtxcoll,0);
+	  //get the first vertex
+          const VertexRef firstvertexref(vtxcoll,0);
 	
-	unsigned index_trck = 0;
+	  unsigned index_trck = 0;
 	  	
-	//loop over all tracks in the track collection
-  	for(TrackCollection::const_iterator trck_ite= trkcoll->begin(); trck_ite!=trkcoll->end(); ++trck_ite,++index_trck) {	
+	  //loop over all tracks in the track collection
+  	  for(TrackCollection::const_iterator trck_ite= trkcoll->begin(); trck_ite!=trkcoll->end(); ++trck_ite,++index_trck) {	
 
-	  trackref = TrackRef(trkcoll,index_trck);
+ 	    trackref = TrackRef(trkcoll,index_trck);
 		
-	  bestweight = 0.;
+ 	    bestweight = 0.;
 
-	  unsigned index_vtx = 0;
-	  unsigned iVertex = 0;
+	    unsigned index_vtx = 0;
+	    unsigned iVertex = 0;
 
-	  //loop over all vertices in the vertex collection
-  	  for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin(); vtx_ite!=vtxcoll->end(); ++vtx_ite,++index_vtx) {
+	    //loop over all vertices in the vertex collection
+  	    for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin(); vtx_ite!=vtxcoll->end(); ++vtx_ite,++index_vtx) {
 
-            const VertexRef vertexref(vtxcoll,index_vtx);
+              const VertexRef vertexref(vtxcoll,index_vtx);
 
-	    //check only those vertices with a good quality
-	    if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
+	      //check only those vertices with a good quality
+	      if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
  
-	      //get the most probable vertex for the track
-	      float weight = CalculateWeight(*vertexref,trackref);
-	      if (weight>bestweight){
-		bestweight = weight;
-	   	bestvertexref = vertexref;
-		iVertex = index_vtx;
- 	      }
+	        //get the most probable vertex for the track
+	        float weight = CalculateWeight(*vertexref,trackref);
+	        if (weight>bestweight){
+  		  bestweight = weight;
+	   	  bestvertexref = vertexref;
+		  iVertex = index_vtx;
+ 	        }
 
- 	    } 
-
-	  }
-
-
-	  //if no vertex is found with a probability greater 0.00001
-	  if (bestweight<0.00001){
-	    //choose the closest vertex in z & bestweight set to -1.
-	    if (input_ClosestVertex_){
-
-  	      double dzmin = 10000;
-              double ztrack = (*trackref).referencePoint().z();
-
-	      index_vtx = 0;
-          
-	      //loop over all vertices with a good quality in the vertex collection
-              for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
-
-                const VertexRef vertexref(vtxcoll,index_vtx);
-
-	        if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
- 
-	          //find and store the closest vertex in z
-                  double dz = fabs(ztrack - (*vertexref).z());
-                  if(dz<dzmin) {
-                    dzmin = dz; 
-                    iVertex = index_vtx;
-                  }
-
-                }
-	
-	      }
-
-	      bestvertexref = VertexRef(vtxcoll,iVertex);	
-              bestweight = -1.;      
-
-	    } 
-            else {
-	      //choose always the first vertex & bestweight set to -1
-	      iVertex = 0;
-	      bestvertexref = VertexRef(vtxcoll,iVertex);	
-              bestweight = -1.;     
+ 	      } 
 
 	    }
-	  } 
+
+
+	    //if no vertex is found with a probability greater 0.00001
+	    if (bestweight<0.00001){
+  	      //choose the closest vertex in z & bestweight set to -1.
+	      if (input_ClosestVertex_){
+
+  	        double dzmin = 10000;
+                double ztrack = (*trackref).referencePoint().z();
+
+	        index_vtx = 0;
+          
+	        //loop over all vertices with a good quality in the vertex collection
+                for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
+
+                  const VertexRef vertexref(vtxcoll,index_vtx);
+
+	          if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
+ 
+	            //find and store the closest vertex in z
+                    double dz = fabs(ztrack - (*vertexref).z());
+                    if(dz<dzmin) {
+                      dzmin = dz; 
+                      iVertex = index_vtx;
+                    }
+
+                  }
+	
+	        }
+
+	        bestvertexref = VertexRef(vtxcoll,iVertex);	
+                bestweight = -1.;      
+
+	      } 
+              else {
+	        //choose always the first vertex & bestweight set to -1
+	        iVertex = 0;
+	        bestvertexref = VertexRef(vtxcoll,iVertex);	
+                bestweight = -1.;     
+
+	      }
+	    } 
 	    
 
-	  //insert the best vertex, track and the quality of this association in the map
-          trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
+	    //insert the best vertex, track and the quality of this association in the map
+            trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
+
+	  }
+	  
+	  iEvent.put( trackvertexass );
 
 	}
-	  
-	iEvent.put( trackvertexass );
 	
 	//leave if no input for gsfelectroncollection is set
  	if (input_GsfElectronCollection_=="default") return;
