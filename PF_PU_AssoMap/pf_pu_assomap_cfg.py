@@ -20,7 +20,7 @@ process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
           VertexMinNdof = cms.untracked.double(4.),
           ClosestVertex = cms.untracked.bool(True),
           UseGsfElectronVertex = cms.untracked.bool(True),
-	  UseCtfAssVertexForGsf ) cms.untracked.bool(False),
+	  UseCtfAssVertexForGsf = cms.untracked.bool(False),
 )
 
 process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
