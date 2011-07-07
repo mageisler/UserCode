@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.6 2011/06/08 09:15:05 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.7 2011/06/08 09:25:44 mgeisler Exp $
 //
 //
 
@@ -75,6 +75,8 @@ class PF_PU_AssoMap : public edm::EDProducer {
 
       typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
       typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
+
+     typedef vector<pair<TrackRef, float> > TrackQualityPairVector;
 
    private:
       virtual void beginJob() ;
@@ -145,7 +147,14 @@ PF_PU_AssoMap::~PF_PU_AssoMap()
 void
 PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
- 
+	  
+	//variables for the best vertex for the track
+	float bestweight;
+   	VertexRef bestvertexref;
+	TrackRef trackref;
+
+     	auto_ptr<TrackVertexAssMap> trackvertexass(new TrackVertexAssMap() );
+
 	//get the input vertex collection
   	Handle<VertexCollection> vtxcoll;
   	iEvent.getByLabel(input_VertexCollection_,vtxcoll);
@@ -154,17 +163,10 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	
 	//look if an input for trackcollection is set
  	if (input_TrackCollection_!="default"){
-
-     	  auto_ptr<TrackVertexAssMap> trackvertexass(new TrackVertexAssMap() );
     
-	  //get the input track collection
+	  //get the input track collection     
   	  Handle<TrackCollection> trkcoll;
   	  iEvent.getByLabel(input_TrackCollection_,trkcoll);
-	  
-	  //variables for the best vertex for the track
-	  float bestweight;
-   	  VertexRef bestvertexref;
-	  TrackRef trackref;
 
 	  //get the first vertex
           const VertexRef firstvertexref(vtxcoll,0);
@@ -276,6 +278,10 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	  //if gsfelectron's closestCtfTrack is a null reference 
    	  if (trackref.isNull()){
+    
+	    //get the CTFtrack collection     
+  	    Handle<TrackCollection> CTFtrkcoll;
+  	    iEvent.getByLabel("generalTracks",CTFtrkcoll);
 
      	    unsigned int index_trck=0;
      	    int ibest=-1;
@@ -283,7 +289,7 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
      	    float dr_min=1000;
      	    
 	    //search the general track that shares the most hits with the electron seed
-     	    for(TrackCollection::const_iterator trck_ite= trkcoll->begin(); trck_ite!=trkcoll->end(); ++trck_ite,++index_trck){
+     	    for(TrackCollection::const_iterator trck_ite= CTFtrkcoll->begin(); trck_ite!=CTFtrkcoll->end(); ++trck_ite,++index_trck){
        
 	      unsigned int sharedhits=0;
        
