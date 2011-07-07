@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.7 2011/06/08 09:25:44 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.8 2011/07/07 15:58:11 mgeisler Exp $
 //
 //
 
@@ -324,7 +324,7 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     	    }
 
-      	    trackref = TrackRef(trkcoll,ibest);
+      	    trackref = TrackRef(CTFtrkcoll,ibest);
 
    	  }//END OF if gsfelectron's closestCtfTrack is a null reference
 		  
