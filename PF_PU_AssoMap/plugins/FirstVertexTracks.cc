@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Apr 11 17:36:26 CEST 2011
-// $Id: FirstVertexTracks.cc,v 1.5 2011/05/23 12:36:47 mgeisler Exp $
+// $Id: FirstVertexTracks.cc,v 1.6 2011/06/01 13:15:47 mgeisler Exp $
 //
 //
 
@@ -46,14 +46,24 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectronFwd.h"
-
-//
-// class declaration
-//
    
 using namespace edm;
 using namespace std;
 using namespace reco;
+
+  typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
+  typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
+
+  typedef vector<pair<TrackRef, float> > TrackQualityPairVector;
+  typedef pair<TrackRef, float> TrackQualityPair;
+
+  typedef vector<pair<GsfElectronRef, float> > GsfQualityPairVector;
+  typedef pair<GsfElectronRef, float> GsfQualityPair;
+
+
+//
+// class declaration
+//
 
 class FirstVertexTracks : public edm::EDProducer {
    public:
@@ -61,15 +71,6 @@ class FirstVertexTracks : public edm::EDProducer {
       ~FirstVertexTracks();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-
-     typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
-     typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
-
-     typedef vector<pair<TrackRef, float> > TrackQualityPairVector;
-     typedef pair<TrackRef, float> TrackQualityPair;
-
-     typedef vector<pair<GsfElectronRef, float> > GsfQualityPairVector;
-     typedef pair<GsfElectronRef, float> GsfQualityPair;
 
    private:
       virtual void beginJob() ;
@@ -116,9 +117,11 @@ FirstVertexTracks::FirstVertexTracks(const edm::ParameterSet& iConfig)
   	input_GsfElectronCollection_= iConfig.getUntrackedParameter<string>("GsfElectronCollection","default");
 
 
-	if (input_generalTracksCollection_!="default") produces<TrackCollection>();
+// 	if (input_generalTracksCollection_!="default") produces<TrackCollection>();
 	if (input_GsfElectronCollection_!="default") produces<GsfElectronCollection>();
-  
+  	produces<TrackCollection>();
+// 	produces<TrackCollection>("VCTracks");
+
 }
 
 
@@ -146,6 +149,59 @@ FirstVertexTracks::beginJob()
 void
 FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+	
+	//look if an input for generalTrackCollection is set
+ 	if (input_generalTracksCollection_!="default"){
+
+	  auto_ptr<TrackCollection> gT_firstvertextracks(new TrackCollection() );
+  
+	  //get the input vertex<->general track association map
+  	  Handle<TrackVertexAssMap> GTassomap;
+  	  iEvent.getByLabel(input_VertexTrackAssociationMap_,GTassomap);
+
+	  const VertexRef assomap_vertexref = GTassomap->begin()->key;
+	  const TrackQualityPairVector trckcoll = GTassomap->begin()->val;
+
+	  TrackRef GTtrackref;
+
+	  //get the tracks associated to the first vertex and store them in a track collection
+	  for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
+
+	    bool isGtMatched = false;
+	    GTtrackref = trckcoll[trckcoll_ite].first;
+		
+	    //if input Collection is not generalTracks loop over all tracks of the input collection to find the correct general Track
+	    if (input_generalTracksCollection_!="generalTracks"){
+ 
+	      //get the input track collection
+  	      Handle<TrackCollection> input_trckcoll;
+  	      iEvent.getByLabel(input_generalTracksCollection_,input_trckcoll);
+	
+	      TrackRef input_trackref;
+	      unsigned index_input_trck = 0;
+
+  	      for(TrackCollection::const_iterator input_trckcoll_ite = input_trckcoll->begin(); input_trckcoll_ite!=input_trckcoll->end(); input_trckcoll_ite++,index_input_trck++){
+
+		input_trackref = TrackRef(input_trckcoll,index_input_trck);
+
+   	  	if(TrackMatch(GTtrackref,input_trackref)){
+
+		  isGtMatched = true;
+		  break;
+	 	   	      
+		} 
+
+	      }
+
+	    } else isGtMatched = true;
+
+	    if (isGtMatched) gT_firstvertextracks->push_back(*GTtrackref);
+
+	  }
+
+	  iEvent.put( gT_firstvertextracks );
+	
+	}
  
 	//get the input vertex collection
   	Handle<VertexCollection> vtxcoll;
@@ -153,72 +209,26 @@ FirstVertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	//get the first vertex
         const VertexRef firstvertexref(vtxcoll,0);
+
+        //create TrackCollection for the VertexCollection
+	auto_ptr<TrackCollection> VCtrks(new TrackCollection() );;
 	
-	//look if an input for generalTrackCollection is set
- 	if (input_generalTracksCollection_!="default"){
-  
-	  //get the input vertex<->general track association map
-  	  Handle<TrackVertexAssMap> GTassomap;
-  	  iEvent.getByLabel(input_VertexTrackAssociationMap_,GTassomap);
+	//get first vertex from the VertexCollection
+        const VertexRef firstvertexrefVC(vtxcoll,0);
 
-	  auto_ptr<TrackCollection> gT_firstvertextracks(new TrackCollection() );
+     	typedef reco::Vertex::trackRef_iterator IT;
 
-	  //loop over all vertices in the association map
-          for (TrackVertexAssMap::const_iterator GTassomap_ite = GTassomap->begin(); GTassomap_ite != GTassomap->end(); GTassomap_ite++){
+        for(IT iTrack=(*firstvertexrefVC).tracks_begin(); iTrack!=(*firstvertexrefVC).tracks_end(); ++iTrack) {
+	 
+      	  const reco::TrackBaseRef& vertexbaseRef = *iTrack;
 
-	    const VertexRef assomap_vertexref = GTassomap_ite->key;
-
-  	    //take only the first vertex from the association map 
-	    if ((assomap_vertexref)==(firstvertexref)){  
+      	  float w = (*firstvertexrefVC).trackWeight(vertexbaseRef);
+      	  if (w>0.) VCtrks->push_back((**iTrack));
  
-  	      const TrackQualityPairVector trckcoll = GTassomap_ite->val;
+        }
 
-	      TrackRef GTtrackref;
+// 	iEvent.put( VCtrks,"VCTracks" );
 
-	      //get the tracks associated to the first vertex and store them in a track collection
-	      for (unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
-
-		bool isGtMatched = false;
-		GTtrackref = trckcoll[trckcoll_ite].first;
-		
-		//if input Collection is not generalTracks loop over all tracks of the input collection to find the correct general Track
-	  	if (input_generalTracksCollection_!="generalTracks"){
- 
-	  	  //get the input track collection
-  	  	  Handle<TrackCollection> input_trckcoll;
-  	  	  iEvent.getByLabel(input_generalTracksCollection_,input_trckcoll);
-	
-	          
-		  TrackRef input_trackref;
-		  unsigned index_input_trck = 0;
-
-  	  	  for(TrackCollection::const_iterator input_trckcoll_ite = input_trckcoll->begin(); input_trckcoll_ite!=input_trckcoll->end(); input_trckcoll_ite++,index_input_trck++){
-
-		    input_trackref = TrackRef(input_trckcoll,index_input_trck);
-
-   	  	    if(TrackMatch(GTtrackref,input_trackref)){
-
-		      isGtMatched = true;
-		      break;
-	 	   	      
-		    } 
-
-		  }
-
-	  	} else isGtMatched = true;
-
-	 	if (isGtMatched) gT_firstvertextracks->push_back(*GTtrackref);
-
-	      }
-
- 	    }
-
-	  }
-
-	  iEvent.put( gT_firstvertextracks );
-	
-	}
-	
 	//look if an input for GsfElectronCollection is set
  	if (input_GsfElectronCollection_!="default"){
   
