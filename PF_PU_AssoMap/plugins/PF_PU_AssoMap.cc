@@ -13,9 +13,11 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.8 2011/07/07 15:58:11 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.9 2011/07/07 16:04:28 mgeisler Exp $
 //
 //
+
+#include "MGeisler/PF_PU_AssoMap/interface/PF_PU_AssoMap.h"
 
 // system include files
 #include <memory>
@@ -32,8 +34,8 @@
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/InputTag.h"
-
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+
 #include "DataFormats/Common/interface/AssociationMap.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "DataFormats/Common/interface/OneToManyWithQuality.h"
@@ -53,54 +55,29 @@
 #include "DataFormats/TrajectorySeed/interface/TrajectorySeed.h"
 #include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
 #include "DataFormats/GsfTrackReco/interface/GsfTrackFwd.h"
+#include "DataFormats/ParticleFlowReco/interface/PFConversion.h"
+#include "DataFormats/ParticleFlowReco/interface/PFConversionFwd.h"
+#include "DataFormats/ParticleFlowReco/interface/PFDisplacedVertex.h"
+#include "DataFormats/ParticleFlowReco/interface/PFDisplacedVertexFwd.h"
+#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+#include "DataFormats/Candidate/interface/VertexCompositeCandidateFwd.h"
+#include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
+
+#include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
 
 #include "TMath.h"
-
-
-//
-// class declaration
-//
    
 using namespace edm;
 using namespace std;
 using namespace reco;
 
+  typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
+  typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
 
-class PF_PU_AssoMap : public edm::EDProducer {
-   public:
-      explicit PF_PU_AssoMap(const edm::ParameterSet&);
-      ~PF_PU_AssoMap();
+  typedef pair<TrackRef, float> TrackQualityPair;
+  typedef vector<TrackQualityPair > TrackQualityPairVector;
 
-      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-
-      typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
-      typedef AssociationMap<OneToManyWithQuality< VertexCollection, GsfElectronCollection, float> > GsfVertexAssMap;
-
-     typedef vector<pair<TrackRef, float> > TrackQualityPairVector;
-
-   private:
-      virtual void beginJob() ;
-      virtual void produce(edm::Event&, const edm::EventSetup&);
-      virtual float CalculateWeight(const reco::Vertex vertex, 
-			             const reco::TrackRef trackref);
-      virtual void endJob() ;
-      
-      virtual void beginRun(edm::Run&, edm::EventSetup const&);
-      virtual void endRun(edm::Run&, edm::EventSetup const&);
-      virtual void beginLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
-      virtual void endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
-
-      // ----------member data ---------------------------
-
-      InputTag input_VertexCollection_;
-      string input_TrackCollection_;
-      string input_GsfElectronCollection_;
-      bool input_VertexQuality_;
-      double input_VertexMinNdof_;
-      bool input_ClosestVertex_;
-      bool input_UseGsfElectronVertex_;
-      bool input_UseCtfAssVertexForGsf_;
-};
+  typedef vector<VertexRef > VertexRefV;
 
 //
 // constructors and destructor
@@ -110,20 +87,28 @@ PF_PU_AssoMap::PF_PU_AssoMap(const edm::ParameterSet& iConfig)
    //now do what ever initialization is needed
 
   	input_VertexCollection_= iConfig.getParameter<InputTag>("VertexCollection");
-
   	input_TrackCollection_ = iConfig.getUntrackedParameter<string>("TrackCollection","default");
-
   	input_GsfElectronCollection_= iConfig.getUntrackedParameter<string>("GsfElectronCollection","default");
 
-  	input_VertexQuality_= iConfig.getUntrackedParameter<bool>("VertexQuality", true);
 
+  	input_VertexQuality_= iConfig.getUntrackedParameter<bool>("VertexQuality", true);
   	input_VertexMinNdof_= iConfig.getUntrackedParameter<double>("VertexMinNdof", 4.);
 
-  	input_ClosestVertex_= iConfig.getUntrackedParameter<bool>("ClosestVertex", true);
+
+  	input_VertexAssOneDim_= iConfig.getUntrackedParameter<bool>("VertexAssOneDim", true);
+  	input_VertexAssClosest_= iConfig.getUntrackedParameter<bool>("VertexAssClosest", true);
+  	input_VertexAssUseAbsDistance_= iConfig.getUntrackedParameter<bool>("VertexAssUseAbsDistance", true);
+
 
   	input_UseGsfElectronVertex_= iConfig.getUntrackedParameter<bool>("UseGsfElectronVertex", true);
-
   	input_UseCtfAssVertexForGsf_= iConfig.getUntrackedParameter<bool>("UseCtfAssVertexForGsf", false);
+
+  	ConversionsCollection_= iConfig.getParameter<InputTag>("ConversionsCollection");
+
+  	KshortCollection_= iConfig.getParameter<InputTag>("V0KshortCollection");
+  	LambdaCollection_= iConfig.getParameter<InputTag>("V0LambdaCollection");
+
+  	NIVertexCollection_= iConfig.getParameter<InputTag>("NIVertexCollection");
 
 	produces<TrackVertexAssMap>();
 	if (input_GsfElectronCollection_!="default") produces<GsfVertexAssMap>();
@@ -155,9 +140,27 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
      	auto_ptr<TrackVertexAssMap> trackvertexass(new TrackVertexAssMap() );
 
+	//get the conversion collection for the gamma conversions
+	Handle<ConversionCollection> convCollH;
+	iEvent.getByLabel(ConversionsCollection_, convCollH);
+	const ConversionCollection& convColl = *(convCollH.product());
+
+	//get the vertex composite candidate collection for the Kshort's
+	Handle<VertexCompositeCandidateCollection> vertCompCandCollKshortH;
+	iEvent.getByLabel(KshortCollection_, vertCompCandCollKshortH);
+
+	//get the vertex composite candidate collection for the Lambda's
+	Handle<VertexCompositeCandidateCollection> vertCompCandCollLambdaH;
+	iEvent.getByLabel(LambdaCollection_, vertCompCandCollLambdaH);
+
+	//get the displaced vertex collection for nuclear interactions
+	Handle<PFDisplacedVertexCollection> displVertexCollH;
+	iEvent.getByLabel(NIVertexCollection_, displVertexCollH);
+
 	//get the input vertex collection
   	Handle<VertexCollection> vtxcoll;
   	iEvent.getByLabel(input_VertexCollection_,vtxcoll);
+ 	VertexRefV* qualvtxcoll = PF_PU_AssoMapAlgos::QualifiedVertices(vtxcoll,input_VertexQuality_,input_VertexMinNdof_);
 
 	//######################### part of the general track collection association ###############################
 	
@@ -167,91 +170,134 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  //get the input track collection     
   	  Handle<TrackCollection> trkcoll;
   	  iEvent.getByLabel(input_TrackCollection_,trkcoll);
-
-	  //get the first vertex
-          const VertexRef firstvertexref(vtxcoll,0);
-	
-	  unsigned index_trck = 0;
 	  	
-	  //loop over all tracks in the track collection
-  	  for(TrackCollection::const_iterator trck_ite= trkcoll->begin(); trck_ite!=trkcoll->end(); ++trck_ite,++index_trck) {	
+	  //loop over all tracks in the track collectio	
+  	  for(unsigned int index_trck = 0;  index_trck < trkcoll->size(); ++index_trck) {
+
+	    VertexTrackQuality VtxTrkQualAss;
 
  	    trackref = TrackRef(trkcoll,index_trck);
 		
  	    bestweight = 0.;
 
-	    unsigned index_vtx = 0;
-	    unsigned iVertex = 0;
-
 	    //loop over all vertices in the vertex collection
-  	    for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin(); vtx_ite!=vtxcoll->end(); ++vtx_ite,++index_vtx) {
+  	    for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
 
-              const VertexRef vertexref(vtxcoll,index_vtx);
-
-	      //check only those vertices with a good quality
-	      if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
+              VertexRef vertexref = qualvtxcoll->at(index_vtx);
  
-	        //get the most probable vertex for the track
-	        float weight = CalculateWeight(*vertexref,trackref);
-	        if (weight>bestweight){
-  		  bestweight = weight;
-	   	  bestvertexref = vertexref;
-		  iVertex = index_vtx;
- 	        }
-
+	      //get the most probable vertex for the track
+	      float weight = PF_PU_AssoMapAlgos::CalculateWeight(*vertexref,trackref);
+	      if (weight>bestweight){
+  		bestweight = weight;
+	   	bestvertexref = vertexref;
  	      } 
 
 	    }
 
+	    //look if the track is a secondary
+ 	    if(trackref->trackerExpectedHitsInner().numberOfLostHits()>=0){
 
-	    //if no vertex is found with a probability greater 0.00001
-	    if (bestweight<0.00001){
-  	      //choose the closest vertex in z & bestweight set to -1.
-	      if (input_ClosestVertex_){
+	      //the part for the reassociation from gamma conversions
+	      for(unsigned int convcoll_ite = 0; convcoll_ite < convColl.size(); convcoll_ite++){
 
-  	        double dzmin = 10000;
-                double ztrack = (*trackref).referencePoint().z();
+	        if(ConversionTools::matchesConversion(trackref,convColl[convcoll_ite])){
 
-	        index_vtx = 0;
-          
-	        //loop over all vertices with a good quality in the vertex collection
-                for(VertexCollection::const_iterator vtx_ite= vtxcoll->begin();vtx_ite!=vtxcoll->end();++vtx_ite,++index_vtx) {
-
-                  const VertexRef vertexref(vtxcoll,index_vtx);
-
-	          if (!(input_VertexQuality_) ||  (((*vertexref).ndof()>=input_VertexMinNdof_) && !((*vertexref).isFake()))){
- 
-	            //find and store the closest vertex in z
-                    double dz = fabs(ztrack - (*vertexref).z());
-                    if(dz<dzmin) {
-                      dzmin = dz; 
-                      iVertex = index_vtx;
-                    }
-
-                  }
+// 		  VertexRef help = bestvertexref; 
+	          bestvertexref = PF_PU_AssoMapAlgos::FindConversionVertex(trackref,qualvtxcoll);
+	  	  bestweight = -1.;  	
+// 	   	  if (help!=bestvertexref) cout << "New gamma Association" << endl;
+  		  break;
 	
-	        }
-
-	        bestvertexref = VertexRef(vtxcoll,iVertex);	
-                bestweight = -1.;      
-
-	      } 
-              else {
-	        //choose always the first vertex & bestweight set to -1
-	        iVertex = 0;
-	        bestvertexref = VertexRef(vtxcoll,iVertex);	
-                bestweight = -1.;     
+		}
 
 	      }
+
+	    }
+
+	    //the part for the reassociation of particles from Kshort decays
+	    for(VertexCompositeCandidateCollection::const_iterator iKS = vertCompCandCollKshortH->begin(); iKS != vertCompCandCollKshortH->end(); iKS++){
+
+	      const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iKS->daughter(0));
+ 	      TrackRef dauTk1 = dauCand1->track();
+	      const RecoChargedCandidate *dauCand2 = dynamic_cast<const RecoChargedCandidate*>(iKS->daughter(1));
+ 	      TrackRef dauTk2 = dauCand2->track();
+
+   	      if((trackref==dauTk1) || (trackref==dauTk2)){
+
+// 		  VertexRef help = bestvertexref; 
+	          bestvertexref = PF_PU_AssoMapAlgos::FindV0Vertex(trackref,*iKS,qualvtxcoll);
+	  	  bestweight = -1.;  	
+// 	   	  if (help!=bestvertexref) cout << "New Kshort Association" << endl;
+  		  break;
+
+	      }
+
+	    }
+
+	    //the part for the reassociation of particles from Lambda decays
+	    for(VertexCompositeCandidateCollection::const_iterator iLambda = vertCompCandCollLambdaH->begin(); iLambda != vertCompCandCollLambdaH->end(); iLambda++){
+
+	      const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iLambda->daughter(0));
+ 	      TrackRef dauTk1 = dauCand1->track();
+	      const RecoChargedCandidate *dauCand2 = dynamic_cast<const RecoChargedCandidate*>(iLambda->daughter(1));
+ 	      TrackRef dauTk2 = dauCand2->track();
+
+   	      if((trackref==dauTk1) || (trackref==dauTk2)){
+
+// 		  VertexRef help = bestvertexref; 
+	          bestvertexref = PF_PU_AssoMapAlgos::FindV0Vertex(trackref,*iLambda,qualvtxcoll);
+	  	  bestweight = -1.;  	
+// 	   	  if (help!=bestvertexref) cout << "New Lambda Association" << endl;
+  		  break;
+
+	      }
+
+	    }
+
+	    //the part for the reassociation of particles from nuclear interactions
+	    for(PFDisplacedVertexCollection::const_iterator iDisplV = displVertexCollH->begin(); iDisplV != displVertexCollH->end(); iDisplV++){
+
+	      if((iDisplV->isNucl()) && (iDisplV->position().rho()>2.9) && (iDisplV->trackWeight(trackref)>0.)){
+
+// 		  VertexRef help = bestvertexref; 
+	          bestvertexref = PF_PU_AssoMapAlgos::FindNIVertex(trackref,*iDisplV,qualvtxcoll);
+	  	  bestweight = -1.;  	
+// 	   	  if (help!=bestvertexref) cout << "New nuclear interaction Association" << endl;
+  		  break;
+
+	      }
+
+	    }
+
+	    //if no vertex is found with a probability greater 0.00001
+	    if ((bestweight>0.00001) || (bestweight==-1.)) VtxTrkQualAss = make_pair(bestvertexref,make_pair(trackref,bestweight));
+	    else {
+
+	      // if input_VertexAssOneDim_ == true association done by closest in z or allways first vertex
+	      if (input_VertexAssOneDim_){ 
+	        if (input_VertexAssClosest_)
+  		  //associate to closest vertex in z 
+                  VtxTrkQualAss = PF_PU_AssoMapAlgos::AssociateClosestInZ(trackref,qualvtxcoll);
+		else{
+	          //choose always the first vertex from the vertex collection & bestweight set to -1
+	          bestvertexref = VertexRef(vtxcoll,0);	
+		  VtxTrkQualAss = make_pair(bestvertexref,make_pair(trackref,-1.));
+		}
+	      }
+	      else
+		VtxTrkQualAss = PF_PU_AssoMapAlgos::AssociateClosest3D(trackref,qualvtxcoll,iSetup,input_VertexAssUseAbsDistance_);
+
 	    } 
 	    
 
-	    //insert the best vertex, track and the quality of this association in the map
-            trackvertexass->insert(bestvertexref,make_pair(trackref,bestweight));
+	    //insert the best vertex and the pair of track and the quality of this association in the map
+            trackvertexass->insert(VtxTrkQualAss.first,VtxTrkQualAss.second);
 
 	  }
+
+// 	  auto_ptr<TrackCollection> secondarytrks = PF_PU_AssoMapAlgos::SecondaryTracks(&(*trackvertexass) );
 	  
-	  iEvent.put( trackvertexass );
+	  iEvent.put( PF_PU_AssoMapAlgos::SortAssociationMap(&(*trackvertexass)) );
 
 	}
 	
@@ -392,35 +438,6 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	iEvent.put( gsfvertexass );
 }
 
-float 
-PF_PU_AssoMap::CalculateWeight(const reco::Vertex vertex, const reco::TrackRef trackref) 
-{
- 
-	const reco::TrackBaseRef& trackbaseRef = TrackBaseRef(trackref);
-
-  	float weight=0.;
-
-    	typedef reco::Vertex::trackRef_iterator IT;
-    
-        //loop on tracks in vertices
-    	for(IT iTrack=vertex.tracks_begin(); iTrack!=vertex.tracks_end(); ++iTrack) {
-	 
-      	  const reco::TrackBaseRef& vertexbaseRef = *iTrack;
-
-       	  // one of the tracks in the vertex is the same as 
-      	  // the track considered in the function
-      	  float w = vertex.trackWeight(vertexbaseRef);
-      	  if(vertexbaseRef == trackbaseRef) {
-	    if (w > weight){
-	      weight=w;
-	    }	 	
-          }
-        }
-
-  return weight;
-
-}
-
 // ------------ method called once each job just before starting event loop  ------------
 void 
 PF_PU_AssoMap::beginJob()
@@ -429,7 +446,8 @@ PF_PU_AssoMap::beginJob()
 
 // ------------ method called once each job just after ending the event loop  ------------
 void 
-PF_PU_AssoMap::endJob() {
+PF_PU_AssoMap::endJob() 
+{
 }
 
 // ------------ method called when starting to processes a run  ------------
