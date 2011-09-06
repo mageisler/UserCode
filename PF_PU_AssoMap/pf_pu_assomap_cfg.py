@@ -9,32 +9,43 @@ process.source = cms.Source("PoolSource",
 )
 		
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(2)
+    input = cms.untracked.int32(10)
 )
 
-process.Tracks2Vertex = cms.EDProducer('PF_PU_AssoMap',
-          VertexCollection = cms.InputTag('offlinePrimaryVertices'),
-          TrackCollection = cms.untracked.string('generalTracks'),
-          GsfElectronCollection = cms.untracked.string('gsfElectrons'),
-          VertexQuality = cms.untracked.bool(True),
-          VertexMinNdof = cms.untracked.double(4.),
-          ClosestVertex = cms.untracked.bool(True),
-          UseGsfElectronVertex = cms.untracked.bool(True),
-	  UseCtfAssVertexForGsf = cms.untracked.bool(False),
-)
+### conditions
+process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
+process.GlobalTag.globaltag = 'START42_V11::All'
+
+### standard includes
+process.load('Configuration.StandardSequences.Services_cff')
+process.load('Configuration.StandardSequences.GeometryPilot2_cff')
+process.load("Configuration.StandardSequences.RawToDigi_cff")
+process.load("Configuration.EventContent.EventContent_cff")
+process.load("Configuration.StandardSequences.Reconstruction_cff")
+process.load("Configuration.StandardSequences.MagneticField_cff")
+
+### AssociationMap-specific includes
+process.load("MGeisler.PF_PU_AssoMap.cuts_cff")
+process.load("MGeisler.PF_PU_AssoMap.PF_PU_AssoMap_cff")
+		
+#process.Tracks2Vertex.GsfElectronCollection = cms.untracked.string('default')
 
 process.FirstVertexTrackCollection = cms.EDProducer('FirstVertexTracks',
-          TrackCollection = cms.untracked.string('generalTracks'),
+          TrackCollection = cms.untracked.string('cutsRecoTracks'),
           GsfElectronCollection = cms.untracked.string('gsfElectrons'),
           VertexTrackAssociationMap = cms.InputTag('Tracks2Vertex'),
           VertexCollection = cms.InputTag('offlinePrimaryVertices'),
 )
 
+### TrackAssociation-specific includes	
+process.load("Validation.Configuration.postValidation_cff")
+process.TrackAssociatorByHits.SimToRecoDenominator = cms.string('reco')	
+from MGeisler.PF_PU_AssoMap.TrackingParticleSelection_cfi import *
+
 process.out = cms.OutputModule("PoolOutputModule",
     fileName = cms.untracked.string('myOutputFile.root')
 )
 
-  
-process.p = cms.Path(process.Tracks2Vertex*process.FirstVertexTrackCollection)
+process.p = cms.Path(process.Tracks2Vertex*process.cutsRecoTracks*process.FirstVertexTrackCollection)
 		
 process.outpath = cms.EndPath(process.out)
