@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Apr  5 18:19:28 CEST 2011
-// $Id: PF_PU_AssoMap.cc,v 1.9 2011/07/07 16:04:28 mgeisler Exp $
+// $Id: PF_PU_AssoMap.cc,v 1.10 2011/09/06 14:02:31 mgeisler Exp $
 //
 //
 
@@ -77,6 +77,8 @@ using namespace reco;
   typedef pair<TrackRef, float> TrackQualityPair;
   typedef vector<TrackQualityPair > TrackQualityPairVector;
 
+  typedef pair<VertexRef, TrackQualityPair> VertexTrackQuality;
+
   typedef vector<VertexRef > VertexRefV;
 
 //
@@ -131,8 +133,8 @@ PF_PU_AssoMap::~PF_PU_AssoMap()
 // ------------ method called to produce the data  ------------
 void
 PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
-{
-	  
+{	
+
 	//variables for the best vertex for the track
 	float bestweight;
    	VertexRef bestvertexref;
@@ -160,7 +162,15 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	//get the input vertex collection
   	Handle<VertexCollection> vtxcoll;
   	iEvent.getByLabel(input_VertexCollection_,vtxcoll);
- 	VertexRefV* qualvtxcoll = PF_PU_AssoMapAlgos::QualifiedVertices(vtxcoll,input_VertexQuality_,input_VertexMinNdof_);
+ 	VertexRefV* qualvtxcoll = PF_PU_AssoMapAlgos::QualifiedVertices(vtxcoll,input_VertexQuality_,input_VertexMinNdof_,displVertexCollH,
+									vertCompCandCollKshortH,vertCompCandCollLambdaH);
+
+	if(qualvtxcoll->size()==0){
+	  if(vtxcoll->size()>0){
+            const VertexRef vertexref(vtxcoll,0);
+	    qualvtxcoll->push_back(vertexref);
+	  } else return;
+	} 
 
 	//######################### part of the general track collection association ###############################
 	
@@ -177,101 +187,48 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	    VertexTrackQuality VtxTrkQualAss;
 
  	    trackref = TrackRef(trkcoll,index_trck);
-		
- 	    bestweight = 0.;
+	    const TrackBaseRef& trackbaseRef = TrackBaseRef(trackref);
 
-	    //loop over all vertices in the vertex collection
-  	    for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
+	    //First round of association:
+	    //Looking for a qualified vertex with a track weight > 0
+	    VtxTrkQualAss = PF_PU_AssoMapAlgos::TrackWeightAssociation(trackbaseRef,qualvtxcoll);
 
-              VertexRef vertexref = qualvtxcoll->at(index_vtx);
- 
-	      //get the most probable vertex for the track
-	      float weight = PF_PU_AssoMapAlgos::CalculateWeight(*vertexref,trackref);
-	      if (weight>bestweight){
-  		bestweight = weight;
-	   	bestvertexref = vertexref;
- 	      } 
+	    //Test if the track comes from a gamma conversion
+	    //If so reassociate the track to the vertex of the photon
+	    if(PF_PU_AssoMapAlgos::ComesFromConversion(trackref,convColl)){
 
-	    }
-
-	    //look if the track is a secondary
- 	    if(trackref->trackerExpectedHitsInner().numberOfLostHits()>=0){
-
-	      //the part for the reassociation from gamma conversions
-	      for(unsigned int convcoll_ite = 0; convcoll_ite < convColl.size(); convcoll_ite++){
-
-	        if(ConversionTools::matchesConversion(trackref,convColl[convcoll_ite])){
-
-// 		  VertexRef help = bestvertexref; 
-	          bestvertexref = PF_PU_AssoMapAlgos::FindConversionVertex(trackref,qualvtxcoll);
-	  	  bestweight = -1.;  	
-// 	   	  if (help!=bestvertexref) cout << "New gamma Association" << endl;
-  		  break;
-	
-		}
-
-	      }
+// 	      VertexRef help = VtxTrkQualAss.first; 
+	      VtxTrkQualAss = PF_PU_AssoMapAlgos::FindConversionVertex(trackref,qualvtxcoll);  	
+// 	      if (help!=VtxTrkQualAss.first) cout << "New gamma Association" << endl;
 
 	    }
 
-	    //the part for the reassociation of particles from Kshort decays
-	    for(VertexCompositeCandidateCollection::const_iterator iKS = vertCompCandCollKshortH->begin(); iKS != vertCompCandCollKshortH->end(); iKS++){
+	    //Test if the track comes from a Kshort or Lambda decay
+	    //If so reassociate the track to the vertex of the V0
+	    VertexCompositeCandidate V0;
+	    if(PF_PU_AssoMapAlgos::ComesFromV0Decay(trackref,vertCompCandCollKshortH,vertCompCandCollLambdaH,&V0)){
 
-	      const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iKS->daughter(0));
- 	      TrackRef dauTk1 = dauCand1->track();
-	      const RecoChargedCandidate *dauCand2 = dynamic_cast<const RecoChargedCandidate*>(iKS->daughter(1));
- 	      TrackRef dauTk2 = dauCand2->track();
-
-   	      if((trackref==dauTk1) || (trackref==dauTk2)){
-
-// 		  VertexRef help = bestvertexref; 
-	          bestvertexref = PF_PU_AssoMapAlgos::FindV0Vertex(trackref,*iKS,qualvtxcoll);
-	  	  bestweight = -1.;  	
-// 	   	  if (help!=bestvertexref) cout << "New Kshort Association" << endl;
-  		  break;
-
-	      }
+// 	      VertexRef help = VtxTrkQualAss.first; 
+	      VtxTrkQualAss = PF_PU_AssoMapAlgos::FindV0Vertex(trackref,V0,qualvtxcoll);	
+// 	      if (help!=VtxTrkQualAss.first) cout << "New Kshort Association" << endl;
 
 	    }
 
-	    //the part for the reassociation of particles from Lambda decays
-	    for(VertexCompositeCandidateCollection::const_iterator iLambda = vertCompCandCollLambdaH->begin(); iLambda != vertCompCandCollLambdaH->end(); iLambda++){
+	    //Test if the track comes from a nuclear interaction
+	    //If so reassociate the track to the vertex of the incomming particle
+	    PFDisplacedVertex displVtx;
+	    if(PF_PU_AssoMapAlgos::ComesFromNI(trackref,displVertexCollH,&displVtx)){
 
-	      const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iLambda->daughter(0));
- 	      TrackRef dauTk1 = dauCand1->track();
-	      const RecoChargedCandidate *dauCand2 = dynamic_cast<const RecoChargedCandidate*>(iLambda->daughter(1));
- 	      TrackRef dauTk2 = dauCand2->track();
-
-   	      if((trackref==dauTk1) || (trackref==dauTk2)){
-
-// 		  VertexRef help = bestvertexref; 
-	          bestvertexref = PF_PU_AssoMapAlgos::FindV0Vertex(trackref,*iLambda,qualvtxcoll);
-	  	  bestweight = -1.;  	
-// 	   	  if (help!=bestvertexref) cout << "New Lambda Association" << endl;
-  		  break;
-
-	      }
+//            VertexRef help = VtxTrkQualAss.first; 
+	      VtxTrkQualAss = PF_PU_AssoMapAlgos::FindNIVertex(trackref,displVtx,qualvtxcoll); 	
+// 	      if (help!=VtxTrkQualAss.first) cout << "New nuclear interaction Association" << endl;
 
 	    }
 
-	    //the part for the reassociation of particles from nuclear interactions
-	    for(PFDisplacedVertexCollection::const_iterator iDisplV = displVertexCollH->begin(); iDisplV != displVertexCollH->end(); iDisplV++){
-
-	      if((iDisplV->isNucl()) && (iDisplV->position().rho()>2.9) && (iDisplV->trackWeight(trackref)>0.)){
-
-// 		  VertexRef help = bestvertexref; 
-	          bestvertexref = PF_PU_AssoMapAlgos::FindNIVertex(trackref,*iDisplV,qualvtxcoll);
-	  	  bestweight = -1.;  	
-// 	   	  if (help!=bestvertexref) cout << "New nuclear interaction Association" << endl;
-  		  break;
-
-	      }
-
-	    }
-
-	    //if no vertex is found with a probability greater 0.00001
-	    if ((bestweight>0.00001) || (bestweight==-1.)) VtxTrkQualAss = make_pair(bestvertexref,make_pair(trackref,bestweight));
-	    else {
+	    //If no vertex is found with a probability greater 0.00001
+	    //and no reassociation was done look for the closest vertex in z in 3d
+	    //or associate the track allways to the first vertex
+	    if ((VtxTrkQualAss.second.second<=0.00001) && (VtxTrkQualAss.second.second!=-1.)){
 
 	      // if input_VertexAssOneDim_ == true association done by closest in z or allways first vertex
 	      if (input_VertexAssOneDim_){ 
@@ -280,8 +237,7 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
                   VtxTrkQualAss = PF_PU_AssoMapAlgos::AssociateClosestInZ(trackref,qualvtxcoll);
 		else{
 	          //choose always the first vertex from the vertex collection & bestweight set to -1
-	          bestvertexref = VertexRef(vtxcoll,0);	
-		  VtxTrkQualAss = make_pair(bestvertexref,make_pair(trackref,-1.));
+		  VtxTrkQualAss = make_pair(qualvtxcoll->at(0),make_pair(trackref,-1.));
 		}
 	      }
 	      else
@@ -289,13 +245,10 @@ PF_PU_AssoMap::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	    } 
 	    
-
 	    //insert the best vertex and the pair of track and the quality of this association in the map
             trackvertexass->insert(VtxTrkQualAss.first,VtxTrkQualAss.second);
 
 	  }
-
-// 	  auto_ptr<TrackCollection> secondarytrks = PF_PU_AssoMapAlgos::SecondaryTracks(&(*trackvertexass) );
 	  
 	  iEvent.put( PF_PU_AssoMapAlgos::SortAssociationMap(&(*trackvertexass)) );
 
