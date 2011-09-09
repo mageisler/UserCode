@@ -189,6 +189,32 @@ PF_PU_AssoMapAlgos::TrackWeightAssociation(const TrackBaseRef&  trackbaseRef, Ve
 
 }
 
+VertexTrackQuality 
+PF_PU_AssoMapAlgos::TrackWeightAssociation(const TrackBaseRef&  trackbaseRef, Handle<VertexCollection> vtxcoll) 
+{
+
+	unsigned iVertex = 0;		
+ 	float bestweight = 0.;
+
+	//loop over all vertices in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+ 
+     	  //get the most probable vertex for the track
+	  float weight = PF_PU_AssoMapAlgos::CalculateWeight(*vertexref,trackbaseRef);
+	  if (weight>bestweight){
+  	    bestweight = weight;
+	    iVertex = index_vtx;
+ 	  } 
+
+	}
+
+	TrackRef trackRef = trackbaseRef.castTo<TrackRef>();
+  	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackRef,bestweight));
+
+}
+
 
 /*************************************************************************************/
 /* function to associate the track to the closest vertex in z                        */ 
@@ -218,6 +244,32 @@ PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, VertexRefV* qualvtxco
 	}
 
 	return make_pair(bestvertexref,make_pair(trackref,-1.));
+}
+
+VertexTrackQuality
+PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, Handle<VertexCollection> vtxcoll)
+{
+
+	unsigned iVertex = 0;
+
+	double dzmin = 10000;
+        double ztrack = trackref->referencePoint().z();
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+ 
+	  //find and store the closest vertex in z
+          double dz = fabs(ztrack - vertexref->z());
+          if(dz<dzmin) {
+            dzmin = dz; 
+            iVertex = index_vtx;
+          }
+	
+	}
+
+	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
 }
 
 
@@ -271,6 +323,52 @@ PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, VertexRefV* qualvtxcol
 	return make_pair(bestvertexref,make_pair(trackref,-1.));
 }
 
+VertexTrackQuality
+PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, Handle<VertexCollection> vtxcoll, 
+				       const edm::EventSetup& iSetup, bool input_VertexAssUseAbsDistance_)
+{
+
+	unsigned iVertex = 0;
+
+	ESHandle<MagneticField> bFieldHandle;
+	iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle);
+
+	TransientTrack genTrkTT(trackref, &(*bFieldHandle) );
+
+  	double IpMin = 10000;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+	        
+	  double genTrk3DIp = -1.;
+	  double genTrk3DIpSig = -1.;
+	  pair<bool,Measurement1D> genTrk3DIpPair = IPTools::absoluteImpactParameter3D(genTrkTT, *vertexref);
+
+	  if (genTrk3DIpPair.first){
+    	    genTrk3DIp = genTrk3DIpPair.second.value();
+	    genTrk3DIpSig = genTrk3DIpPair.second.significance();
+	  }
+ 
+	  //find and store the closest vertex
+	  if(input_VertexAssUseAbsDistance_){
+            if(genTrk3DIp<IpMin){
+              IpMin = genTrk3DIp; 
+              iVertex = index_vtx;
+            }
+	  }else{
+            if(genTrk3DIpSig<IpMin){
+              IpMin = genTrk3DIp; 
+              iVertex = index_vtx;
+            }
+	  }
+
+        }	
+
+	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
+}
+
 
 /*************************************************************************************/
 /* function to find the closest vertex in z for a track from a conversion            */ 
@@ -306,6 +404,38 @@ PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, VertexRefV* qu
 
 	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
 	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
+}
+
+VertexTrackQuality
+PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, Handle<VertexCollection> vtxcoll)
+{
+
+	double dzmin = 5.;
+
+	double ztrackfirst = trackref->innerPosition().z();
+	double tracktheta = trackref->innerMomentum().theta();
+	double radius = trackref->innerPosition().rho();
+
+	double ztrack = ztrackfirst - (radius/tan(tracktheta));
+
+	unsigned iVertex = 0;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+ 
+	  //find and store the closest vertex in z
+          double dz = fabs(ztrack - vertexref->z());
+          if(dz<dzmin) {
+            dzmin = dz; 
+            iVertex = index_vtx;
+          }
+	
+	}
+
+	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
+	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
 }
 
 
@@ -365,6 +495,38 @@ PF_PU_AssoMapAlgos::FindV0Vertex(const TrackRef trackref, VertexCompositeCandida
 
 	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
 	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
+}
+
+VertexTrackQuality
+PF_PU_AssoMapAlgos::FindV0Vertex(const TrackRef trackref, VertexCompositeCandidate V0, Handle<VertexCollection> vtxcoll)
+{
+
+	double dzmin = 5;
+
+        double ztrackfirst = V0.vertex().z();
+	double radius = V0.vertex().rho();
+	double tracktheta = V0.p4().theta();
+
+	double ztrack = ztrackfirst - (radius/tan(tracktheta));
+
+	unsigned iVertex = 0;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+ 
+	  //find and store the closest vertex in z
+          double dz = fabs(ztrack - vertexref->z());
+          if(dz<dzmin) {
+            dzmin = dz; 
+            iVertex = index_vtx;
+          }
+	
+	}
+
+	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
+	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
 }
 
 
@@ -473,6 +635,62 @@ PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex disp
 
 	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
 	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
+}
+
+VertexTrackQuality
+PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex displVtx, Handle<VertexCollection> vtxcoll)
+{
+
+	if ((displVtx.isTherePrimaryTracks()) || (displVtx.isThereMergedTracks())){
+
+	  TrackCollection refittedTracks = displVtx.refittedTracks();
+
+	  for(TrackCollection::const_iterator trkcoll_ite = refittedTracks.begin(); trkcoll_ite != refittedTracks.end(); trkcoll_ite++){
+	
+	    const TrackBaseRef retrackbaseref = displVtx.originalTrack(*trkcoll_ite); 
+
+	    if(displVtx.isIncomingTrack(retrackbaseref)){
+
+              VertexTrackQuality VOAssociation = PF_PU_AssoMapAlgos::TrackWeightAssociation(retrackbaseref,vtxcoll);
+
+	      if(VOAssociation.second.second<0.00001) VOAssociation = PF_PU_AssoMapAlgos::AssociateClosestInZ(retrackbaseref.castTo<TrackRef>(),vtxcoll);
+
+	      return make_pair(VOAssociation.first,make_pair(trackref,-1.));; 
+
+	    }
+
+	  }
+
+	}
+	
+	math::XYZTLorentzVector mom_sec = displVtx.secondaryMomentum((string) "PI", true);
+
+	double dzmin = 5;
+
+        double ztrackfirst = trackref->innerPosition().z();
+	double radius = trackref->innerPosition().rho();     
+	double tracktheta = mom_sec.theta();	
+
+	double ztrack = ztrackfirst - (radius/tan(tracktheta));
+
+	unsigned iVertex = 0;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+
+          VertexRef vertexref(vtxcoll,index_vtx);
+ 
+	  //find and store the closest vertex in z
+          double dz = fabs(ztrack - vertexref->z());
+          if(dz<dzmin) {
+            dzmin = dz; 
+            iVertex = index_vtx;
+          }
+	
+	}
+
+	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
+	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
 }
 
 

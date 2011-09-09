@@ -57,23 +57,35 @@ class PF_PU_AssoMapAlgos{
    static float CalculateWeight(const Vertex, const TrackBaseRef&);
    
    static VertexTrackQuality TrackWeightAssociation(const TrackBaseRef&, VertexRefV*);
+   
+   static VertexTrackQuality TrackWeightAssociation(const TrackBaseRef&, Handle<VertexCollection>);
+
+   static VertexTrackQuality AssociateClosestInZ(TrackRef, VertexRefV*);
+
+   static VertexTrackQuality AssociateClosestInZ(TrackRef, Handle<VertexCollection>);
+   
+   static VertexTrackQuality AssociateClosest3D(TrackRef, VertexRefV*, const edm::EventSetup&, bool);
+   
+   static VertexTrackQuality AssociateClosest3D(TrackRef, Handle<VertexCollection>, const edm::EventSetup&, bool);
 
    static bool ComesFromConversion(const TrackRef, const ConversionCollection&);
    
    static VertexTrackQuality FindConversionVertex(const TrackRef, VertexRefV*);
+   
+   static VertexTrackQuality FindConversionVertex(const TrackRef, Handle<VertexCollection>);
 
    static bool ComesFromV0Decay(const TrackRef, Handle<VertexCompositeCandidateCollection>, 
 	 	 	  	Handle<VertexCompositeCandidateCollection>, VertexCompositeCandidate*);
    
    static VertexTrackQuality FindV0Vertex(const TrackRef, VertexCompositeCandidate, VertexRefV*);
+   
+   static VertexTrackQuality FindV0Vertex(const TrackRef, VertexCompositeCandidate, Handle<VertexCollection>);
 
    static bool ComesFromNI(const TrackRef, Handle<PFDisplacedVertexCollection>, PFDisplacedVertex*);
    
    static VertexTrackQuality FindNIVertex(const TrackRef, PFDisplacedVertex, VertexRefV*);
-
-   static VertexTrackQuality AssociateClosestInZ(TrackRef, VertexRefV*);
    
-   static VertexTrackQuality AssociateClosest3D(TrackRef, VertexRefV*, const edm::EventSetup&, bool);
+   static VertexTrackQuality FindNIVertex(const TrackRef, PFDisplacedVertex, Handle<VertexCollection>);
 
    static auto_ptr<TrackVertexAssMap> SortAssociationMap(TrackVertexAssMap*); 
 
