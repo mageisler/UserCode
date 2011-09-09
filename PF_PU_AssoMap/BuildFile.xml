@@ -5,6 +5,7 @@
 <use   name="DataFormats/TrackReco"/>
 <use   name="DataFormats/VertexReco"/>
 <use   name="DataFormats/EgammaCandidates"/>
+<use   name="DataFormats/RecoCandidate"/>
 <use   name="DataFormats/BeamSpot"/>
 <use   name="TrackingTools/TransientTrack"/>
 <use   name="TrackingTools/IPTools"/>
