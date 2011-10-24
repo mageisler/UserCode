@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Oct 21 16:12:04 CEST 2011
-// $Id$
+// $Id: PU_counter.cc,v 1.1 2011/10/24 14:43:09 mgeisler Exp $
 //
 //
 
@@ -102,18 +102,17 @@ class PU_counter : public edm::EDProducer {
 //
 PU_counter::PU_counter(const edm::ParameterSet& iConfig)
 {
-
+  const uint NumberOfBins=iConfig.getUntrackedParameter<int> ("NumberOfBins");
   input_OutName_ = iConfig.getUntrackedParameter<string>("OutName");
 
   outfile_MC = new TFile(input_OutName_.c_str(), "RECREATE");  
-  outfile_Data = new TFile("Lumi_Data.root", "RECREATE");  
+  outfile_Data = new TFile("MCReweightingInput.root", "RECREATE");  
 
-  pileup_MC  = new TH1F("pileup","pileup;pileup;events",35,-0.5,34.5);
-
-  pileup_Data_May2011  = new TH1F("pileup_Data_May2011","pileup;pileup;events",35,-0.5,34.5);
-  pileup_Data_Flat10Tail  = new TH1F("pileup_Data_Flat10Tail","pileup;pileup;events",35,-0.5,34.5);
-  pileup_Data_SpikeSmear  = new TH1F("pileup_Data_SpikeSmear","pileup;pileup;events",35,-0.5,34.5);
-  pileup_Data_PoissonInt  = new TH1F("pileup_Data_PoissonInt","pileup;pileup;events",35,-0.5,34.5);
+  pileup_MC  = new TH1F("pileup","pileup;pileup;events",NumberOfBins,-0.5,NumberOfBins-0.5);
+  pileup_Data_May2011  = new TH1F("pileup_Data_May2011","pileup;pileup;events",NumberOfBins,-0.5,NumberOfBins-0.5);
+  pileup_Data_Flat10Tail  = new TH1F("pileup_Data_Flat10Tail","pileup;pileup;events",NumberOfBins,-0.5,NumberOfBins-0.5);
+  pileup_Data_SpikeSmear  = new TH1F("pileup_Data_SpikeSmear","pileup;pileup;events",NumberOfBins,-0.5,NumberOfBins-0.5);
+  pileup_Data_PoissonInt  = new TH1F("pileup_Data_PoissonInt","pileup;pileup;events",NumberOfBins,-0.5,NumberOfBins-0.5);
 
   float TrueDist2011_f[35] = {
     0.019091,
@@ -267,11 +266,15 @@ PU_counter::PU_counter(const edm::ParameterSet& iConfig)
     0.0
   };
 
-  for( int i=0; i<35; ++i) {
-    pileup_Data_May2011->SetBinContent(i+1,TrueDist2011_f[i]);
-    pileup_Data_Flat10Tail->SetBinContent(i+1,probdistFlat10[i]);
-    pileup_Data_SpikeSmear->SetBinContent(i+1,PoissonOneXDist[i]);
-    pileup_Data_PoissonInt->SetBinContent(i+1,PoissonIntDist[i]);
+  for( uint i=0; i<NumberOfBins; ++i) {
+    if(i<sizeof(TrueDist2011_f))    pileup_Data_May2011->SetBinContent(i+1,TrueDist2011_f[i]);
+    else  pileup_Data_May2011->SetBinContent(i+1,0.0);
+    if(i<sizeof(probdistFlat10))    pileup_Data_Flat10Tail->SetBinContent(i+1,probdistFlat10[i]);
+    else pileup_Data_Flat10Tail->SetBinContent(i+1,0.0);
+    if(i<sizeof(PoissonOneXDist))    pileup_Data_SpikeSmear->SetBinContent(i+1,PoissonOneXDist[i]);
+    else pileup_Data_SpikeSmear->SetBinContent(i+1,0.0);
+    if(i<sizeof(PoissonIntDist))    pileup_Data_PoissonInt->SetBinContent(i+1,PoissonIntDist[i]);
+    else  pileup_Data_PoissonInt->SetBinContent(i+1,0.0);
   }
   
 }
