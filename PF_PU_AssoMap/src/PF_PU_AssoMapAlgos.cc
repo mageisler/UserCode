@@ -8,6 +8,7 @@
 #include "DataFormats/Common/interface/OneToManyWithQuality.h"
 #include "DataFormats/Common/interface/OneToManyWithQualityGeneric.h"
 #include "DataFormats/Common/interface/View.h"
+#include "DataFormats/Math/interface/deltaR.h"
 
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
@@ -16,6 +17,7 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectronFwd.h"
+#include "DataFormats/EgammaReco/interface/ElectronSeed.h"
 #include "DataFormats/EgammaReco/interface/ElectronSeedFwd.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHitFwd.h"
@@ -24,6 +26,7 @@
 #include "DataFormats/GsfTrackReco/interface/GsfTrackFwd.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/EgammaCandidates/interface/Conversion.h"
+#include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
 #include "DataFormats/Candidate/interface/VertexCompositeCandidateFwd.h"
 #include "DataFormats/ParticleFlowReco/interface/PFDisplacedVertex.h"
@@ -31,14 +34,25 @@
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 
 #include "TrackingTools/IPTools/interface/IPTools.h"
+#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
+#include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
+#include "RecoVertex/KinematicFit/interface/KinematicParticleVertexFitter.h"
+#include "RecoVertex/KinematicFit/interface/KinematicParticleFitter.h"
+#include "RecoVertex/KinematicFitPrimitives/interface/KinematicParticle.h"
+#include "RecoVertex/KinematicFitPrimitives/interface/KinematicParticleFactoryFromTransientTrack.h"
+#include "RecoVertex/KinematicFitPrimitives/interface/RefCountedKinematicParticle.h"
 
 #include "TMath.h"
    
 using namespace edm;
 using namespace std;
 using namespace reco;
+
+const double eMass = 0.000511;
+const double kMass = 0.497;
+const double piMass = 0.1396;
 
   typedef AssociationMap<OneToManyWithQuality< VertexCollection, TrackCollection, float> > TrackVertexAssMap;
 
@@ -50,6 +64,8 @@ using namespace reco;
   typedef vector< VertexPtsumPair > VertexPtsumVector;
 
   typedef vector<VertexRef > VertexRefV;
+
+  typedef math::XYZTLorentzVector LorentzVector;
 
 
 /*******************************************************************************************/
@@ -65,14 +81,18 @@ PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bo
 
 	VertexRefV* qualvtxcoll(new VertexRefV() );
 
-  	for(unsigned int index_vtx = 0;  index_vtx < input_vtxcoll->size(); ++index_vtx) {
+  	for(unsigned int index_vtx=0; index_vtx<input_vtxcoll->size(); ++index_vtx){
 
           const VertexRef vertexref(input_vtxcoll,index_vtx);
 
-	  if(!(input_VertexQuality_) ||  ((vertexref->ndof()>=input_VertexMinNdof_) && !(vertexref->isFake()))){
+	  if(!(input_VertexQuality_) ||  
+	     ((vertexref->ndof()>=input_VertexMinNdof_) 
+	      && !(vertexref->isFake())
+	      && (fabs(vertexref->position().z())<24.) 
+	     )){
 
 	    bool isDisplVtx = false;
-	    for(PFDisplacedVertexCollection::const_iterator iDisplV = displVertexCollH->begin(); iDisplV != displVertexCollH->end(); iDisplV++){
+	    for(PFDisplacedVertexCollection::const_iterator iDisplV=displVertexCollH->begin(); iDisplV!=displVertexCollH->end(); iDisplV++){
 
 	      if(((iDisplV->isNucl()) || (iDisplV->isConv()) || (iDisplV->isConvertedBremm()) || (iDisplV->isK0()) || (iDisplV->isLambda())) 
 		 && (iDisplV->position().rho()>2.9) 
@@ -87,10 +107,10 @@ PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bo
 
 	    }
 
-	    if (isDisplVtx) continue; 
+	    if(isDisplVtx) continue; 
 
 	    bool isV0Dec = false;
-	    for(VertexCompositeCandidateCollection::const_iterator iKS = vertCompCandCollKshortH->begin(); iKS != vertCompCandCollKshortH->end(); iKS++){
+	    for(VertexCompositeCandidateCollection::const_iterator iKS=vertCompCandCollKshortH->begin(); iKS!=vertCompCandCollKshortH->end(); iKS++){
 
 	      if((fabs(iKS->vertex().x()-vertexref->position().x())<=0.01) 
 		 && (fabs(iKS->vertex().y()-vertexref->position().y())<=0.01) 
@@ -103,7 +123,7 @@ PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bo
 
 	    }
 
-	    for(VertexCompositeCandidateCollection::const_iterator iLambda = vertCompCandCollLambdaH->begin(); iLambda != vertCompCandCollLambdaH->end(); iLambda++){
+	    for(VertexCompositeCandidateCollection::const_iterator iLambda=vertCompCandCollLambdaH->begin(); iLambda!=vertCompCandCollLambdaH->end(); iLambda++){
 
 	      if((fabs(iLambda->vertex().x()-vertexref->position().x())<=0.01) 
 		 && (fabs(iLambda->vertex().y()-vertexref->position().y())<=0.01) 
@@ -116,7 +136,7 @@ PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bo
 
 	    }
 
-	    if (isV0Dec) continue; 
+	    if(isV0Dec) continue; 
 
 	    qualvtxcoll->push_back(vertexref);
 
@@ -128,109 +148,74 @@ PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bo
 
 }
 
-/*************************************************************************************/
-/* function to achieve the weight of the association track<->vertex from the vertex  */ 
-/*************************************************************************************/
-
-float 
-PF_PU_AssoMapAlgos::CalculateWeight(const Vertex vertex, const TrackBaseRef& trackbaseref) 
+VertexRefV* 
+PF_PU_AssoMapAlgos::QualifiedVertices(Handle<VertexCollection> input_vtxcoll, bool input_VertexQuality_, double input_VertexMinNdof_) 
 {
 
-  	float weight=0.;
+	VertexRefV* qualvtxcoll(new VertexRefV() );
 
-    	typedef Vertex::trackRef_iterator IT;
-    
-        //loop on tracks in vertices
-    	for(IT iTrack=vertex.tracks_begin(); iTrack!=vertex.tracks_end(); ++iTrack) {
-	 
-      	  const TrackBaseRef& vertexbaseRef = *iTrack;
+  	for(unsigned int index_vtx=0;  index_vtx<input_vtxcoll->size(); ++index_vtx){
 
-       	  // one of the tracks in the vertex is the same as 
-      	  // the track considered in the function
-      	  float w = vertex.trackWeight(vertexbaseRef);
-      	  if(vertexbaseRef == trackbaseref) {
-	    if (w > weight){
-	      weight=w;
-	    }	 	
-          }
-        }
+          const VertexRef vertexref(input_vtxcoll,index_vtx);
 
-  	return weight;
+	  if(!(input_VertexQuality_) ||  
+	     ((vertexref->ndof()>=input_VertexMinNdof_) 
+	      && !(vertexref->isFake())
+	      && (vertexref->position().z()<24.))) qualvtxcoll->push_back(vertexref);
+
+	}
+
+	return qualvtxcoll;
 
 }
 
+
 /*************************************************************************************/
-/* function to achieve the weight of the association track<->vertex from the vertex  */ 
+/* function to find the vertex with the highest TrackWeight for a certain track      */ 
 /*************************************************************************************/
 
 VertexTrackQuality 
-PF_PU_AssoMapAlgos::TrackWeightAssociation(const TrackBaseRef&  trackbaseRef, VertexRefV* qualvtxcoll) 
+PF_PU_AssoMapAlgos::TrackWeightAssociation(const TrackRef&  trackRef, VertexRefV* qualvtxcoll) 
 {
 
 	VertexRef bestvertexref = qualvtxcoll->at(0);		
  	float bestweight = 0.;
 
+	const TrackBaseRef& trackbaseRef = TrackBaseRef(trackRef);
+
 	//loop over all vertices in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
+  	for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
 
           VertexRef vertexref = qualvtxcoll->at(index_vtx);
  
      	  //get the most probable vertex for the track
-	  float weight = PF_PU_AssoMapAlgos::CalculateWeight(*vertexref,trackbaseRef);
-	  if (weight>bestweight){
+	  float weight = vertexref->trackWeight(trackbaseRef);
+	  if(weight>bestweight){
   	    bestweight = weight;
 	    bestvertexref = vertexref;
  	  } 
 
 	}
 
-	TrackRef trackRef = trackbaseRef.castTo<TrackRef>();
   	return make_pair(bestvertexref,make_pair(trackRef,bestweight));
 
 }
 
-VertexTrackQuality 
-PF_PU_AssoMapAlgos::TrackWeightAssociation(const TrackBaseRef&  trackbaseRef, Handle<VertexCollection> vtxcoll) 
-{
-
-	unsigned iVertex = 0;		
- 	float bestweight = 0.;
-
-	//loop over all vertices in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
-
-          VertexRef vertexref(vtxcoll,index_vtx);
- 
-     	  //get the most probable vertex for the track
-	  float weight = PF_PU_AssoMapAlgos::CalculateWeight(*vertexref,trackbaseRef);
-	  if (weight>bestweight){
-  	    bestweight = weight;
-	    iVertex = index_vtx;
- 	  } 
-
-	}
-
-	TrackRef trackRef = trackbaseRef.castTo<TrackRef>();
-  	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackRef,bestweight));
-
-}
-
 
 /*************************************************************************************/
-/* function to associate the track to the closest vertex in z                        */ 
+/* function to find the closest vertex in z for a certain point                      */ 
 /*************************************************************************************/
 
-VertexTrackQuality
-PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, VertexRefV* qualvtxcoll)
+VertexRef 
+PF_PU_AssoMapAlgos::FindClosestInZ(double ztrack, VertexRefV* qualvtxcoll)
 {
 
 	VertexRef bestvertexref;
 
-	double dzmin = 10000;
-        double ztrack = trackref->referencePoint().z();
+	double dzmin = 5.;
           
 	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
+  	for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
 
           VertexRef vertexref = qualvtxcoll->at(index_vtx);
  
@@ -243,33 +228,19 @@ PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, VertexRefV* qualvtxco
 	
 	}
 
-	return make_pair(bestvertexref,make_pair(trackref,-1.));
+	if(dzmin<5.) return bestvertexref;
+	  else return qualvtxcoll->at(0);
 }
 
+
+/*************************************************************************************/
+/* function to associate the track to the closest vertex in z                        */ 
+/*************************************************************************************/
+
 VertexTrackQuality
-PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, Handle<VertexCollection> vtxcoll)
+PF_PU_AssoMapAlgos::AssociateClosestInZ(TrackRef trackref, VertexRefV* qualvtxcoll)
 {
-
-	unsigned iVertex = 0;
-
-	double dzmin = 10000;
-        double ztrack = trackref->referencePoint().z();
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
-
-          VertexRef vertexref(vtxcoll,index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
-	}
-
-	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
+	return make_pair(PF_PU_AssoMapAlgos::FindClosestInZ(trackref->referencePoint().z(),qualvtxcoll),make_pair(trackref,-1.));
 }
 
 
@@ -282,25 +253,25 @@ PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, VertexRefV* qualvtxcol
 				       const edm::EventSetup& iSetup, bool input_VertexAssUseAbsDistance_)
 {
 
-	VertexRef bestvertexref;
+	VertexRef bestvertexref = qualvtxcoll->at(0);
 
 	ESHandle<MagneticField> bFieldHandle;
 	iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle);
 
 	TransientTrack genTrkTT(trackref, &(*bFieldHandle) );
 
-  	double IpMin = 10000;
+  	double IpMin = 10.;
           
 	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
+  	for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
 
           VertexRef vertexref = qualvtxcoll->at(index_vtx);
 	        
-	  double genTrk3DIp = -1.;
-	  double genTrk3DIpSig = -1.;
+	  double genTrk3DIp = 10001.;
+	  double genTrk3DIpSig = 10001.;
 	  pair<bool,Measurement1D> genTrk3DIpPair = IPTools::absoluteImpactParameter3D(genTrkTT, *vertexref);
 
-	  if (genTrk3DIpPair.first){
+	  if(genTrk3DIpPair.first){
     	    genTrk3DIp = genTrk3DIpPair.second.value();
 	    genTrk3DIpSig = genTrk3DIpPair.second.significance();
 	  }
@@ -313,7 +284,7 @@ PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, VertexRefV* qualvtxcol
             }
 	  }else{
             if(genTrk3DIpSig<IpMin){
-              IpMin = genTrk3DIp; 
+              IpMin = genTrk3DIpSig; 
               bestvertexref = vertexref;
             }
 	  }
@@ -323,119 +294,196 @@ PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, VertexRefV* qualvtxcol
 	return make_pair(bestvertexref,make_pair(trackref,-1.));
 }
 
-VertexTrackQuality
-PF_PU_AssoMapAlgos::AssociateClosest3D(TrackRef trackref, Handle<VertexCollection> vtxcoll, 
-				       const edm::EventSetup& iSetup, bool input_VertexAssUseAbsDistance_)
-{
-
-	unsigned iVertex = 0;
-
-	ESHandle<MagneticField> bFieldHandle;
-	iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle);
-
-	TransientTrack genTrkTT(trackref, &(*bFieldHandle) );
-
-  	double IpMin = 10000;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
-
-          VertexRef vertexref(vtxcoll,index_vtx);
-	        
-	  double genTrk3DIp = -1.;
-	  double genTrk3DIpSig = -1.;
-	  pair<bool,Measurement1D> genTrk3DIpPair = IPTools::absoluteImpactParameter3D(genTrkTT, *vertexref);
-
-	  if (genTrk3DIpPair.first){
-    	    genTrk3DIp = genTrk3DIpPair.second.value();
-	    genTrk3DIpSig = genTrk3DIpPair.second.significance();
-	  }
- 
-	  //find and store the closest vertex
-	  if(input_VertexAssUseAbsDistance_){
-            if(genTrk3DIp<IpMin){
-              IpMin = genTrk3DIp; 
-              iVertex = index_vtx;
-            }
-	  }else{
-            if(genTrk3DIpSig<IpMin){
-              IpMin = genTrk3DIp; 
-              iVertex = index_vtx;
-            }
-	  }
-
-        }	
-
-	return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
-}
-
 
 /*************************************************************************************/
 /* function to find the closest vertex in z for a track from a conversion            */ 
 /*************************************************************************************/
 
 VertexTrackQuality
-PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, VertexRefV* qualvtxcoll)
+PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, Conversion gamma, VertexRefV* qualvtxcoll)
 {
 
-	double dzmin = 5.;
-
-	double ztrackfirst = trackref->innerPosition().z();
+	double ztrackfirst = gamma.conversionVertex().z();
+	double radius = gamma.conversionVertex().position().rho();
 	double tracktheta = trackref->innerMomentum().theta();
-	double radius = trackref->innerPosition().rho();
+	if(gamma.nTracks()==2) tracktheta = gamma.pairMomentum().theta();
 
 	double ztrack = ztrackfirst - (radius/tan(tracktheta));
 
-	unsigned iVertex = 0;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
-
-          VertexRef vertexref = qualvtxcoll->at(index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
-	}
-
-	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
-	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
+	return make_pair(PF_PU_AssoMapAlgos::FindClosestInZ(ztrack,qualvtxcoll),make_pair(trackref,-2.));
 }
 
 VertexTrackQuality
-PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, Handle<VertexCollection> vtxcoll)
-{
+PF_PU_AssoMapAlgos::FindConversionVertex2(const TrackRef trackref, Conversion gamma, VertexRefV* qualvtxcoll,
+					  const edm::EventSetup& iSetup, bool ass_type)
+{  
 
-	double dzmin = 5.;
+// 	cout << gamma.nTracks() << endl;
 
-	double ztrackfirst = trackref->innerPosition().z();
-	double tracktheta = trackref->innerMomentum().theta();
-	double radius = trackref->innerPosition().rho();
+	VertexRef bestvertexref = qualvtxcoll->at(0);
 
-	double ztrack = ztrackfirst - (radius/tan(tracktheta));
+	ESHandle<TransientTrackBuilder> theTTB;
+  	iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theTTB); 
 
-	unsigned iVertex = 0;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+	ESHandle<MagneticField> bFieldHandle;
+	iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle); 
 
-          VertexRef vertexref(vtxcoll,index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
+	GlobalVector phoMomentum;
+	if(gamma.nTracks()==2){ 
+	  phoMomentum = GlobalVector( gamma.pairMomentum().x(),
+				      gamma.pairMomentum().y(),
+				      gamma.pairMomentum().z() );
+	}else{ 
+	  phoMomentum = GlobalVector( trackref->innerMomentum().x(),
+				      trackref->innerMomentum().y(),
+				      trackref->innerMomentum().z() );
 	}
 
-	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
-	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
+	const math::XYZPoint conversionPoint = gamma.conversionVertex().position();
+	const math::XYZVector photonVector( phoMomentum.x(),phoMomentum.y(),phoMomentum.z() );
+
+	Track photon = Track(trackref->chi2(),trackref->ndof(),conversionPoint,photonVector,0,trackref->innerStateCovariance());
+	TransientTrack genPhoTT(photon, &(*bFieldHandle) );
+    
+        KinematicParticleFactoryFromTransientTrack pFactory;
+	vector<RefCountedKinematicParticle> PhoParticles;
+
+    	float chi = 0.;				      
+    	float ndf = 0.;
+	float eMassSigma = eMass*1.e-6;
+
+	//loop over all tracks from the conversion	
+	for(unsigned convtrk_ite=0; convtrk_ite<gamma.nTracks(); convtrk_ite++){
+
+      	  Track ConvTrk = *(gamma.tracks().at(convtrk_ite));
+
+    	  // get kinematic particles          		   
+    	  TransientTrack ConvDau = (*theTTB).build(ConvTrk); 
+          PhoParticles.push_back(pFactory.particle(ConvDau, eMass, chi, ndf, eMassSigma));
+
+	}
+
+	KinematicParticleVertexFitter fitter;     
+
+    	if(PhoParticles.size() == 2){
+
+	  RefCountedKinematicTree PhoVertexFitTree = fitter.fit(PhoParticles);
+
+	  if(PhoVertexFitTree->isValid()){
+
+      	    PhoVertexFitTree->movePointerToTheTop();						       
+            RefCountedKinematicParticle PhoFitKinematicParticle = PhoVertexFitTree->currentParticle();
+
+	    KinematicState theCurrentKinematicState = PhoFitKinematicParticle->currentState();
+            FreeTrajectoryState thePhoFTS = theCurrentKinematicState.freeTrajectoryState();
+            genPhoTT = (*theTTB).build(thePhoFTS);
+
+	  }
+
+	}
+
+  	double IpMin = 10.;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
+
+          VertexRef vertexref = qualvtxcoll->at(index_vtx);
+	        
+	  double genPho3DIp = 10001.;
+	  double genPho3DIpSig = 10001.;
+	  pair<bool,Measurement1D> genPho3DIpPair = IPTools::signedImpactParameter3D(genPhoTT, phoMomentum, *vertexref);
+
+	  if(genPho3DIpPair.first){
+    	    genPho3DIp = fabs(genPho3DIpPair.second.value());
+	    genPho3DIpSig = fabs(genPho3DIpPair.second.significance());
+	  }
+ 
+	  //find and store the closest vertex
+	  if(ass_type){
+            if(genPho3DIp<IpMin){
+              IpMin = genPho3DIp; 
+              bestvertexref = vertexref;
+            }
+	  }else{
+            if(genPho3DIpSig<IpMin){
+              IpMin = genPho3DIpSig; 
+              bestvertexref = vertexref;
+            }
+	  }
+
+        }
+
+	return make_pair(bestvertexref,make_pair(trackref,-2.));
+}
+
+bool
+PF_PU_AssoMapAlgos::FindRelatedElectron(const TrackRef trackref, Handle<GsfElectronCollection> gsfcollH, Handle<TrackCollection> CTFtrkcoll) 
+{
+
+	bool output = false;
+
+	TrackRef electrkref;
+
+	//loop over all tracks in the gsfelectron collection
+  	for(GsfElectronCollection::const_iterator gsf_ite=gsfcollH->begin(); gsf_ite!=gsfcollH->end(); ++gsf_ite){
+
+	  electrkref = gsf_ite->closestCtfTrackRef();
+
+	  //if gsfelectron's closestCtfTrack is a null reference 
+   	  if(electrkref.isNull()){
+
+     	    unsigned int index_trck=0;
+     	    int ibest=-1;
+     	    unsigned int sharedhits_max=0;
+     	    float dr_min=1000;
+     	    
+	    //search the general track that shares the most hits with the electron seed
+     	    for(TrackCollection::const_iterator trck_ite=CTFtrkcoll->begin(); trck_ite!=CTFtrkcoll->end(); ++trck_ite,++index_trck){
+       
+	      unsigned int sharedhits=0;
+       
+              float dph= fabs(trck_ite->phi()-gsf_ite->phi()); 
+       	      if(dph>TMath::Pi()) dph-= TMath::TwoPi();
+       	      float det=fabs(trck_ite->eta()-gsf_ite->eta());
+       	      float dr =sqrt(dph*dph+det*det);  
+              
+	      //loop over all valid hits of the chosen general track
+       	      for(trackingRecHit_iterator trackhit_ite=trck_ite->recHitsBegin();trackhit_ite!=trck_ite->recHitsEnd();++trackhit_ite){
+
+	        if(!(*trackhit_ite)->isValid()) continue;
+
+	         //loop over all valid hits of the electron seed 
+             	for(TrajectorySeed::const_iterator gsfhit_ite= gsf_ite->gsfTrack()->extra()->seedRef()->recHits().first;gsfhit_ite!=gsf_ite->gsfTrack()->extra()->seedRef()->recHits().second;++gsfhit_ite){
+           	  
+		  if(!(gsfhit_ite->isValid())) continue;
+           	  if((*trackhit_ite)->sharesInput(&*(gsfhit_ite),TrackingRecHit::all))  sharedhits++; 
+         	
+		}       
+         
+       	      }
+       
+ 
+       	      if((sharedhits>sharedhits_max) || ((sharedhits==sharedhits_max)&&(dr<dr_min))){
+
+                sharedhits_max=sharedhits;
+                dr_min=dr;
+                ibest=index_trck;
+
+       	      }
+
+    	    }
+
+      	    electrkref = TrackRef(CTFtrkcoll,ibest);
+
+   	  }//END OF if gsfelectron's closestCtfTrack is a null reference
+
+	  if((electrkref->theta()==trackref->theta()) && 
+	     (electrkref->phi()==trackref->phi()) && 
+	     (electrkref->p()==trackref->p())) output = true;
+
+	}
+
+	return output;
 }
 
 
@@ -444,14 +492,19 @@ PF_PU_AssoMapAlgos::FindConversionVertex(const TrackRef trackref, Handle<VertexC
 /*************************************************************************************/
 
 bool
-PF_PU_AssoMapAlgos::ComesFromConversion(const TrackRef trackref, const ConversionCollection& convColl)
+PF_PU_AssoMapAlgos::ComesFromConversion(const TrackRef trackref, Handle<ConversionCollection> convCollH, Conversion* gamma)
 {
 
- 	if(trackref->trackerExpectedHitsInner().numberOfLostHits()>0){
+ 	if(trackref->trackerExpectedHitsInner().numberOfLostHits()>=0){
 
-	  for(unsigned int convcoll_ite = 0; convcoll_ite < convColl.size(); convcoll_ite++){
+	  for(unsigned int convcoll_ite=0; convcoll_ite<convCollH->size(); convcoll_ite++){
+	
+	    if(ConversionTools::matchesConversion(trackref,convCollH->at(convcoll_ite))){
+	
+	      *gamma = convCollH->at(convcoll_ite);
+	      return true;
 
-	    if(ConversionTools::matchesConversion(trackref,convColl[convcoll_ite])) return true;
+	    }
 
 	  }
 
@@ -469,64 +522,120 @@ VertexTrackQuality
 PF_PU_AssoMapAlgos::FindV0Vertex(const TrackRef trackref, VertexCompositeCandidate V0, VertexRefV* qualvtxcoll)
 {
 
-	double dzmin = 5;
-
         double ztrackfirst = V0.vertex().z();
 	double radius = V0.vertex().rho();
 	double tracktheta = V0.p4().theta();
 
 	double ztrack = ztrackfirst - (radius/tan(tracktheta));
 
-	unsigned iVertex = 0;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
-
-          VertexRef vertexref = qualvtxcoll->at(index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
-	}
-
-	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
-	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
+	return make_pair(PF_PU_AssoMapAlgos::FindClosestInZ(ztrack,qualvtxcoll),make_pair(trackref,-2.));
 }
 
 VertexTrackQuality
-PF_PU_AssoMapAlgos::FindV0Vertex(const TrackRef trackref, VertexCompositeCandidate V0, Handle<VertexCollection> vtxcoll)
+PF_PU_AssoMapAlgos::FindV0Vertex2(const TrackRef trackref, VertexCompositeCandidate V0, VertexRefV* qualvtxcoll)
 {
-
-	double dzmin = 5;
 
         double ztrackfirst = V0.vertex().z();
 	double radius = V0.vertex().rho();
-	double tracktheta = V0.p4().theta();
+	double tracktheta = trackref->theta();
 
 	double ztrack = ztrackfirst - (radius/tan(tracktheta));
 
-	unsigned iVertex = 0;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+	return make_pair(PF_PU_AssoMapAlgos::FindClosestInZ(ztrack,qualvtxcoll),make_pair(trackref,-2.));
+}
 
-          VertexRef vertexref(vtxcoll,index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
+VertexTrackQuality
+PF_PU_AssoMapAlgos::FindV0Vertex3(const TrackRef trackref, VertexCompositeCandidate V0, VertexRefV* qualvtxcoll, 
+		  	  	  const edm::EventSetup& iSetup)
+{  
+
+	VertexRef bestvertexref = qualvtxcoll->at(0);
+
+	ESHandle<TransientTrackBuilder> theTTB;
+  	iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theTTB); 
+
+	ESHandle<MagneticField> bFieldHandle;
+	iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle);
+
+	GlobalVector trkMomentum = GlobalVector( V0.momentum().x(),
+					         V0.momentum().y(),
+				     	   	 V0.momentum().z() );
+
+	const math::XYZPoint decayPoint = V0.vertex();
+	const math::XYZVector primaryVector( trkMomentum.x(),trkMomentum.y(),trkMomentum.z() );
+
+	Track primary = Track(V0.vertexChi2(),V0.vertexNdof(),decayPoint,primaryVector,0,trackref->innerStateCovariance());
+	TransientTrack genPhoTT(primary, &(*bFieldHandle) );
+    
+        KinematicParticleFactoryFromTransientTrack pFactory;
+	vector<RefCountedKinematicParticle> PhoParticles;
+
+    	float chi = 0.;				      
+    	float ndf = 0.;
+	float MassSigma = V0.mass()*1.e-6;
+
+	//loop over all tracks from the conversion	
+	for(unsigned convtrk_ite=0; convtrk_ite<V0.numberOfDaughters(); convtrk_ite++){
+
+	  const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(V0.daughter(convtrk_ite));
+ 	  TrackRef dauTk1 = dauCand1->track();
+
+    	  // get kinematic particles          		   
+    	  TransientTrack ConvDau = (*theTTB).build(*dauTk1); 
+          PhoParticles.push_back(pFactory.particle(ConvDau, V0.mass(), chi, ndf, MassSigma));
+
 	}
 
-	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
-	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
+	KinematicParticleVertexFitter fitter;    
+
+	RefCountedKinematicTree PhoVertexFitTree = fitter.fit(PhoParticles);
+
+	if(PhoVertexFitTree->isValid()){
+
+      	  PhoVertexFitTree->movePointerToTheTop();						       
+          RefCountedKinematicParticle PhoFitKinematicParticle = PhoVertexFitTree->currentParticle();
+
+	  KinematicState theCurrentKinematicState = PhoFitKinematicParticle->currentState();
+          FreeTrajectoryState thePhoFTS = theCurrentKinematicState.freeTrajectoryState();
+          genPhoTT = (*theTTB).build(thePhoFTS);
+
+	}
+
+  	double IpMin = 10.;
+	bool ass_type = false;
+          
+	//loop over all vertices with a good quality in the vertex collection
+  	for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
+
+          VertexRef vertexref = qualvtxcoll->at(index_vtx);
+	        
+	  double genPho3DIp = 10001.;
+	  double genPho3DIpSig = 10001.;
+	  pair<bool,Measurement1D> genPho3DIpPair = IPTools::signedImpactParameter3D(genPhoTT, trkMomentum, *vertexref);
+
+	  if(genPho3DIpPair.first){
+    	    genPho3DIp = fabs(genPho3DIpPair.second.value());
+	    genPho3DIpSig = fabs(genPho3DIpPair.second.significance());
+	  }
+ 
+	  //find and store the closest vertex
+	  if(ass_type){
+            if(genPho3DIp<IpMin){
+              IpMin = genPho3DIp; 
+              bestvertexref = vertexref;
+            }
+	  }else{
+            if(genPho3DIpSig<IpMin){
+              IpMin = genPho3DIpSig; 
+              bestvertexref = vertexref;
+            }
+	  }
+
+        }
+
+// 	cout << IpMin << " \tBV: " << bestvertexref->position().z() << endl;
+
+	return make_pair(bestvertexref,make_pair(trackref,-2.));
 }
 
 
@@ -540,7 +649,7 @@ PF_PU_AssoMapAlgos::ComesFromV0Decay(const TrackRef trackref, Handle<VertexCompo
 {
 
 	//the part for the reassociation of particles from Kshort decays
-	for(VertexCompositeCandidateCollection::const_iterator iKS = vertCompCandCollKshortH->begin(); iKS != vertCompCandCollKshortH->end(); iKS++){
+	for(VertexCompositeCandidateCollection::const_iterator iKS=vertCompCandCollKshortH->begin(); iKS!=vertCompCandCollKshortH->end(); iKS++){
 
 	  const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iKS->daughter(0));
  	  TrackRef dauTk1 = dauCand1->track();
@@ -557,7 +666,7 @@ PF_PU_AssoMapAlgos::ComesFromV0Decay(const TrackRef trackref, Handle<VertexCompo
 	}
 
 	//the part for the reassociation of particles from Lambda decays
-	for(VertexCompositeCandidateCollection::const_iterator iLambda = vertCompCandCollLambdaH->begin(); iLambda != vertCompCandCollLambdaH->end(); iLambda++){
+	for(VertexCompositeCandidateCollection::const_iterator iLambda=vertCompCandCollLambdaH->begin(); iLambda!=vertCompCandCollLambdaH->end(); iLambda++){
 
 	  const RecoChargedCandidate *dauCand1 = dynamic_cast<const RecoChargedCandidate*>(iLambda->daughter(0));
  	  TrackRef dauTk1 = dauCand1->track();
@@ -582,24 +691,28 @@ PF_PU_AssoMapAlgos::ComesFromV0Decay(const TrackRef trackref, Handle<VertexCompo
 /*************************************************************************************/
 
 VertexTrackQuality
-PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex displVtx, VertexRefV* qualvtxcoll)
+PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex displVtx, VertexRefV* qualvtxcoll, 
+				 bool oneDim, const edm::EventSetup& iSetup)
 {
 
-	if ((displVtx.isTherePrimaryTracks()) || (displVtx.isThereMergedTracks())){
+	TrackCollection refittedTracks = displVtx.refittedTracks();
 
-	  TrackCollection refittedTracks = displVtx.refittedTracks();
+	if((displVtx.isTherePrimaryTracks()) || (displVtx.isThereMergedTracks())){
 
-	  for(TrackCollection::const_iterator trkcoll_ite = refittedTracks.begin(); trkcoll_ite != refittedTracks.end(); trkcoll_ite++){
+	  for(TrackCollection::const_iterator trkcoll_ite=refittedTracks.begin(); trkcoll_ite!=refittedTracks.end(); trkcoll_ite++){
 	
 	    const TrackBaseRef retrackbaseref = displVtx.originalTrack(*trkcoll_ite); 
 
 	    if(displVtx.isIncomingTrack(retrackbaseref)){
 
-              VertexTrackQuality VOAssociation = PF_PU_AssoMapAlgos::TrackWeightAssociation(retrackbaseref,qualvtxcoll);
+              VertexTrackQuality VOAssociation = PF_PU_AssoMapAlgos::TrackWeightAssociation(retrackbaseref.castTo<TrackRef>(),qualvtxcoll);
 
-	      if(VOAssociation.second.second<0.00001) VOAssociation = PF_PU_AssoMapAlgos::AssociateClosestInZ(retrackbaseref.castTo<TrackRef>(),qualvtxcoll);
+	      if(VOAssociation.second.second<0.00001){ 
+                if(oneDim) VOAssociation = PF_PU_AssoMapAlgos::AssociateClosestInZ(retrackbaseref.castTo<TrackRef>(),qualvtxcoll);
+                else VOAssociation = PF_PU_AssoMapAlgos::AssociateClosest3D(retrackbaseref.castTo<TrackRef>(),qualvtxcoll,iSetup,false);
+	      }
 
-	      return make_pair(VOAssociation.first,make_pair(trackref,-1.));; 
+	      return make_pair(VOAssociation.first,make_pair(trackref,-2.));; 
 
 	    }
 
@@ -609,88 +722,89 @@ PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex disp
 	
 	math::XYZTLorentzVector mom_sec = displVtx.secondaryMomentum((string) "PI", true);
 
-	double dzmin = 5;
-
-        double ztrackfirst = trackref->innerPosition().z();
-	double radius = trackref->innerPosition().rho();     
+        double ztrackfirst = displVtx.position().z();
+	double radius = displVtx.position().rho();     
 	double tracktheta = mom_sec.theta();	
 
 	double ztrack = ztrackfirst - (radius/tan(tracktheta));
 
-	unsigned iVertex = 0;
-          
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < qualvtxcoll->size(); ++index_vtx) {
+	if(oneDim) return make_pair(PF_PU_AssoMapAlgos::FindClosestInZ(ztrack,qualvtxcoll),make_pair(trackref,-2.));
+	else{
 
-          VertexRef vertexref = qualvtxcoll->at(index_vtx);
- 
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
-          }
-	
-	}
+	  VertexRef bestvertexref = qualvtxcoll->at(0);
 
-	if(dzmin<5.) return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,-1.));
-	  else return make_pair(qualvtxcoll->at(iVertex),make_pair(trackref,0.));
-}
+	  ESHandle<TransientTrackBuilder> theTTB;
+  	  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theTTB); 
 
-VertexTrackQuality
-PF_PU_AssoMapAlgos::FindNIVertex(const TrackRef trackref, PFDisplacedVertex displVtx, Handle<VertexCollection> vtxcoll)
-{
+	  ESHandle<MagneticField> bFieldHandle;
+	  iSetup.get<IdealMagneticFieldRecord>().get(bFieldHandle);
 
-	if ((displVtx.isTherePrimaryTracks()) || (displVtx.isThereMergedTracks())){
+	  GlobalVector trkMomentum = GlobalVector( mom_sec.x(),
+					           mom_sec.y(),
+				     	   	   mom_sec.z() );
 
-	  TrackCollection refittedTracks = displVtx.refittedTracks();
+	  const math::XYZPoint interactionPoint = displVtx.position();
+	  const math::XYZVector primaryVector( trkMomentum.x(),trkMomentum.y(),trkMomentum.z() );
 
-	  for(TrackCollection::const_iterator trkcoll_ite = refittedTracks.begin(); trkcoll_ite != refittedTracks.end(); trkcoll_ite++){
-	
-	    const TrackBaseRef retrackbaseref = displVtx.originalTrack(*trkcoll_ite); 
+	  Track primary = Track(displVtx.chi2(),displVtx.ndof(),interactionPoint,primaryVector,0,trackref->innerStateCovariance());
+	  TransientTrack genPhoTT(primary, &(*bFieldHandle) );
+    
+          KinematicParticleFactoryFromTransientTrack pFactory;
+	  vector<RefCountedKinematicParticle> PhoParticles;
 
-	    if(displVtx.isIncomingTrack(retrackbaseref)){
+    	  float chi = 0.;				      
+    	  float ndf = 0.;
+	  float piMassSigma = piMass*1.e-6;
 
-              VertexTrackQuality VOAssociation = PF_PU_AssoMapAlgos::TrackWeightAssociation(retrackbaseref,vtxcoll);
+	  //loop over all tracks from the nuclear interaction	
+	  for(unsigned convtrk_ite=0; convtrk_ite<refittedTracks.size(); convtrk_ite++){
 
-	      if(VOAssociation.second.second<0.00001) VOAssociation = PF_PU_AssoMapAlgos::AssociateClosestInZ(retrackbaseref.castTo<TrackRef>(),vtxcoll);
-
-	      return make_pair(VOAssociation.first,make_pair(trackref,-1.));; 
-
-	    }
+    	    // get kinematic particles          		   
+    	    TransientTrack ConvDau = (*theTTB).build(refittedTracks.at(convtrk_ite)); 
+            PhoParticles.push_back(pFactory.particle(ConvDau, piMass, chi, ndf, piMassSigma));
 
 	  }
 
-	}
-	
-	math::XYZTLorentzVector mom_sec = displVtx.secondaryMomentum((string) "PI", true);
+	  KinematicParticleVertexFitter fitter;    
 
-	double dzmin = 5;
+	  RefCountedKinematicTree PhoVertexFitTree = fitter.fit(PhoParticles);
 
-        double ztrackfirst = trackref->innerPosition().z();
-	double radius = trackref->innerPosition().rho();     
-	double tracktheta = mom_sec.theta();	
+	  if(PhoVertexFitTree->isValid()){
 
-	double ztrack = ztrackfirst - (radius/tan(tracktheta));
+      	    PhoVertexFitTree->movePointerToTheTop();						       
+            RefCountedKinematicParticle PhoFitKinematicParticle = PhoVertexFitTree->currentParticle();
 
-	unsigned iVertex = 0;
+	    KinematicState theCurrentKinematicState = PhoFitKinematicParticle->currentState();
+            FreeTrajectoryState thePhoFTS = theCurrentKinematicState.freeTrajectoryState();
+            genPhoTT = (*theTTB).build(thePhoFTS);
+
+	  }
+
+  	  double IpMin = 10.;
           
-	//loop over all vertices with a good quality in the vertex collection
-  	for(unsigned int index_vtx = 0;  index_vtx < vtxcoll->size(); ++index_vtx) {
+	  //loop over all vertices with a good quality in the vertex collection
+  	  for(unsigned int index_vtx=0;  index_vtx<qualvtxcoll->size(); ++index_vtx){
 
-          VertexRef vertexref(vtxcoll,index_vtx);
+            VertexRef vertexref = qualvtxcoll->at(index_vtx);
+	        
+	    double genPho3DIpSig = 10001.;
+	    pair<bool,Measurement1D> genPho3DIpPair = IPTools::signedImpactParameter3D(genPhoTT, trkMomentum, *vertexref);
+
+	    if(genPho3DIpPair.first){
+	      genPho3DIpSig = fabs(genPho3DIpPair.second.significance());
+	    }
  
-	  //find and store the closest vertex in z
-          double dz = fabs(ztrack - vertexref->z());
-          if(dz<dzmin) {
-            dzmin = dz; 
-            iVertex = index_vtx;
+	    //find and store the closest vertex
+            if(genPho3DIpSig<IpMin){
+              IpMin = genPho3DIpSig; 
+              bestvertexref = vertexref;
+            }
           }
-	
-	}
 
-	if(dzmin<5.) return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,-1.));
-	  else return make_pair(VertexRef(vtxcoll,iVertex),make_pair(trackref,0.));
+	return make_pair(bestvertexref,make_pair(trackref,-2.));
+
+        } 
+
 }
 
 
@@ -703,7 +817,7 @@ PF_PU_AssoMapAlgos::ComesFromNI(const TrackRef trackref, Handle<PFDisplacedVerte
 {
 
 	//the part for the reassociation of particles from nuclear interactions
-	for(PFDisplacedVertexCollection::const_iterator iDisplV = displVertexCollH->begin(); iDisplV != displVertexCollH->end(); iDisplV++){
+	for(PFDisplacedVertexCollection::const_iterator iDisplV=displVertexCollH->begin(); iDisplV!=displVertexCollH->end(); iDisplV++){
 
 	  if((iDisplV->isNucl()) && (iDisplV->position().rho()>2.9) && (iDisplV->trackWeight(trackref)>0.)){
 	  
@@ -732,7 +846,7 @@ PF_PU_AssoMapAlgos::SortAssociationMap(TrackVertexAssMap* trackvertexassInput)
 	VertexPtsumVector vertexptsumvector;
 
 	//loop over all vertices in the association map
-        for(TrackVertexAssMap::const_iterator assomap_ite = trackvertexassInput->begin(); assomap_ite != trackvertexassInput->end(); assomap_ite++){
+        for(TrackVertexAssMap::const_iterator assomap_ite=trackvertexassInput->begin(); assomap_ite!=trackvertexassInput->end(); assomap_ite++){
 
 	  const VertexRef assomap_vertexref = assomap_ite->key;
   	  const TrackQualityPairVector trckcoll = assomap_ite->val;
@@ -742,10 +856,11 @@ PF_PU_AssoMapAlgos::SortAssociationMap(TrackVertexAssMap* trackvertexassInput)
 	  TrackRef trackref;
 
 	  //get the tracks associated to the vertex and calculate the manipulated pT**2
-	  for(unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++){
+	  for(unsigned int trckcoll_ite=0; trckcoll_ite<trckcoll.size(); trckcoll_ite++){
 
 	    trackref = trckcoll[trckcoll_ite].first;
-	    ptsum+=(trackref->pt() - trackref->ptError())*(trackref->pt() - trackref->ptError());
+	    double man_pT = trackref->pt() - trackref->ptError();
+	    if(man_pT>0.) ptsum+=man_pT*man_pT;
 
 	  }
 
@@ -759,7 +874,7 @@ PF_PU_AssoMapAlgos::SortAssociationMap(TrackVertexAssMap* trackvertexassInput)
 	  float highestpT = 0.;
 	  int highestpT_index = 0;
 
-	  for(unsigned int vtxptsumvec_ite = 0; vtxptsumvec_ite < vertexptsumvector.size(); vtxptsumvec_ite++){
+	  for(unsigned int vtxptsumvec_ite=0; vtxptsumvec_ite<vertexptsumvector.size(); vtxptsumvec_ite++){
  
  	    if(vertexptsumvector[vtxptsumvec_ite].second>highestpT){
 
@@ -772,7 +887,7 @@ PF_PU_AssoMapAlgos::SortAssociationMap(TrackVertexAssMap* trackvertexassInput)
 	  }
 	  
 	  //loop over all vertices in the association map
-          for(TrackVertexAssMap::const_iterator assomap_ite = trackvertexassInput->begin(); assomap_ite != trackvertexassInput->end(); assomap_ite++){
+          for(TrackVertexAssMap::const_iterator assomap_ite=trackvertexassInput->begin(); assomap_ite!=trackvertexassInput->end(); assomap_ite++){
 
 	    const VertexRef assomap_vertexref = assomap_ite->key;
   	    const TrackQualityPairVector trckcoll = assomap_ite->val;
@@ -780,7 +895,7 @@ PF_PU_AssoMapAlgos::SortAssociationMap(TrackVertexAssMap* trackvertexassInput)
 	    //if the vertex from the association map the vertex with the highest manipulated pT 
 	    //insert all associated tracks in the output Association Map
 	    if(assomap_vertexref==vertexref_highestpT) 
-	      for(unsigned int trckcoll_ite = 0; trckcoll_ite < trckcoll.size(); trckcoll_ite++) 
+	      for(unsigned int trckcoll_ite=0; trckcoll_ite<trckcoll.size(); trckcoll_ite++) 
 	        trackvertexassOutput->insert(assomap_vertexref,trckcoll[trckcoll_ite]);
  
 	  }
