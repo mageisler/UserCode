@@ -12,7 +12,8 @@ process.load('Configuration.StandardSequences.Services_cff')
 process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
-process.load('SimGeneral.MixingModule.mixNoPU_cfi')
+#process.load('SimGeneral.MixingModule.mixNoPU_cfi')
+process.load('SimGeneral.MixingModule.mixHighLumPU_cfi')
 process.load('Configuration.StandardSequences.GeometryDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.SimIdeal_cff')
@@ -27,7 +28,7 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(10)
+    input = cms.untracked.int32(1)
 )
 
 # Input source
@@ -59,12 +60,13 @@ process.RECOSIMoutput = cms.OutputModule("PoolOutputModule",
 		
 process.AddOutput = cms.PSet(
     outputCommands = cms.untracked.vstring(
-        'keep TrackingParticles_mergedtruth_*_*',
-	'keep TrackingVertexs_mergedtruth_*_*',
-	'keep PixelDigiSimLinkedmDetSetVector_simSiPixelDigis_*_*',
-	'keep StripDigiSimLinkedmDetSetVector_*_*_*',
-	'drop *_*_*_RECO',
-	'drop PileupSummaryInfos_addPileupInfo__RERECO'),
+	'keep *_*_*_*'),
+        #'keep TrackingParticles_mergedtruth_*_*',
+	#'keep TrackingVertexs_mergedtruth_*_*',
+	#'keep PixelDigiSimLinkedmDetSetVector_simSiPixelDigis_*_*',
+	#'keep StripDigiSimLinkedmDetSetVector_*_*_*',
+	#'drop *_*_*_RECO'),
+	#'drop PileupSummaryInfos_addPileupInfo__RERECO'),
 )
 		
 process.RECOSIMoutput.outputCommands.extend(process.AddOutput.outputCommands)
@@ -72,14 +74,14 @@ process.RECOSIMoutput.outputCommands.extend(process.AddOutput.outputCommands)
 # Additional output definition
 
 # Other statements
-process.GlobalTag.globaltag = 'START44_V7::All'
+process.GlobalTag.globaltag = 'START44_V10::All'
 		
-process.GlobalTag.toGet = cms.VPSet(
-  cms.PSet(record = cms.string("SiStripBadModuleRcd"),
-           tag = cms.string("SiStripBadComponents_FailureScenario_DAQ1"),
-           connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_STRIP")
-          )
-) 
+#process.GlobalTag.toGet = cms.VPSet(
+  #cms.PSet(record = cms.string("SiStripBadModuleRcd"),
+           #tag = cms.string("SiStripBadComponents_FailureScenario_DAQ1"),
+           #connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_STRIP")
+          #)
+#) 
 		
 from SimGeneral.TrackingAnalysis.trackingParticles_cfi import *
 
