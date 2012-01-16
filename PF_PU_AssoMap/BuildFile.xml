@@ -9,7 +9,10 @@
 <use   name="DataFormats/BeamSpot"/>
 <use   name="TrackingTools/TransientTrack"/>
 <use   name="TrackingTools/IPTools"/>
+<use   name="TrackingTools/Records"/>
 <use   name="RecoEgamma/EgammaTools"/>
+<use   name="RecoVertex/KinematicFit"/>
+<use   name="RecoVertex/KinematicFitPrimitives"/>
 <use   name="MagneticField/Records"/>
 <use   name="MagneticField/Engine"/>
 <use   name="rootrflx"/>
