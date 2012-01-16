@@ -50,8 +50,7 @@ class PF_PU_AssoMap : public edm::EDProducer {
       // ----------member data ---------------------------
 
       InputTag input_VertexCollection_;
-      string input_TrackCollection_;
-      string input_GsfElectronCollection_;
+      InputTag input_TrackCollection_;
 
       bool input_VertexQuality_;
       double input_VertexMinNdof_;
@@ -60,15 +59,15 @@ class PF_PU_AssoMap : public edm::EDProducer {
       bool input_VertexAssClosest_;
       bool input_VertexAssUseAbsDistance_;
 
-      bool input_UseGsfElectronVertex_;
-      bool input_UseCtfAssVertexForGsf_;
-
+      InputTag input_GsfElectronCollection_;
       InputTag ConversionsCollection_;
 
       InputTag KshortCollection_;
       InputTag LambdaCollection_;
 
       InputTag NIVertexCollection_;
+
+      double ConversionVar_;
 
 };
 
