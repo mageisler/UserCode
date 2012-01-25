@@ -182,14 +182,14 @@ process.JA = cms.Sequence(
 )		  
 
 process.p = cms.Path(
-      process.cutsRecoTracks
-    * process.T2V
-    * process.FVTC
-    * process.MTV
-    * process.PFCand
-    * process.PFJ
-    * process.nTs
-    * process.JA
+      process.cutsRecoTracks    ### produce the track collection for the analysiof of the charged tracks
+    * process.T2V		### produce the association map
+    * process.FVTC		### produce a collection of tracks associated to the first vertex
+    * process.MTV		### do the efficiency and fake rate analyses for the charged particles 	
+    * process.PFCand		### produce a collection of PFCandidates associated to the first vertex	
+    * process.PFJ		### produce a jet collection from the PFCandidates
+    * process.nTs		### produce the edm nTuples from the jet collection
+    * process.JA		### do the jet analysis	
 )		 
 	       
 process.schedule = cms.Schedule(
