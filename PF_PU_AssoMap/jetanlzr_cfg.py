@@ -13,6 +13,11 @@ process.maxEvents = cms.untracked.PSet(
 )
 		
 OutFile = cms.string('Test.root')
+
+process.TFileService = cms.Service('TFileService',
+    fileName = OutFile,
+    closeFileFast = cms.untracked.bool(True),
+)
 		
 ### conditions
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
@@ -82,10 +87,59 @@ process.kt6PFJetsAM = kt4PFJets.clone(
     	doRhoFastjet = cms.bool(True),
     	Ghost_EtaMax = cms.double(6.5)
 )
-
+		
+process.kt6GenJetsn = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt6GenJets"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ), 
+    )     
+)		   
+	 
+		  
+process.kt6PFJetsAMn = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt6PFJetsAM"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ), 
+    )     
+)
+    
+		
+		  
 process.jetanalyzer = cms.EDAnalyzer('JetAnlzr',
-	genJets = cms.string("kt6GenJets"),
-	recoJets = cms.vstring("kt6PFJets"),
+	genJets = cms.string("kt6GenJetsn"),
+	recoJets = cms.vstring("kt6PFJetsAMn"),
 	PileUpInfo = cms.string("addPileupInfo")
 )
 
@@ -116,20 +170,27 @@ process.PFJ = cms.Sequence(
       process.kt6PFJetsAM
 )	
 
+### produce the edm nTuples from the jet collection		
+process.nTs = cms.Sequence(
+      process.kt6GenJetsn
+    + process.kt6PFJetsAMn
+)	
+
 ### do the jet analysis				  
 process.JA = cms.Sequence(
       process.jetanalyzer
-)
+)		  
 
 process.p = cms.Path(
-    #* process.cutsRecoTracks
-    #* process.T2V
-    #* process.FVTC
-    #* process.MTV
-    #* process.PFCand
-    #* process.PFJ
-     process.JA
-)					  
+      process.cutsRecoTracks
+    * process.T2V
+    * process.FVTC
+    * process.MTV
+    * process.PFCand
+    * process.PFJ
+    * process.nTs
+    * process.JA
+)		 
 	       
 process.schedule = cms.Schedule(
       process.p
