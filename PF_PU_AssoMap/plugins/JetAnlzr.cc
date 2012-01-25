@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Jan 23 11:53:44 CET 2012
-// $Id$
+// $Id: JetAnlzr.cc,v 1.1 2012/01/24 18:21:26 mgeisler Exp $
 //
 //
 
@@ -48,6 +48,7 @@
 #include "DataFormats/Math/interface/deltaR.h"
 #include "JetMETCorrections/Objects/interface/JetCorrector.h"
 #include "CondFormats/JetMETObjects/interface/JetCorrectorParameters.h"
+#include "CondFormats/JetMETObjects/src/Utilities.cc"
 
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
@@ -94,9 +95,6 @@ class JetAnlzr : public edm::EDAnalyzer {
 
       char dirName_[256];
       FactorizedJetCorrector* jec;
-
-//       vector<TH3F*> ptRatioHistos;
-//       vector<TH3F*> etaRatioHistos;
 };
 
 //
@@ -118,9 +116,13 @@ JetAnlzr::JetAnlzr(const edm::ParameterSet& iConfig)
   	input_RecoJets_ = iConfig.getParameter<vector<string> >("recoJets");
   	label_pileupinfo_ = iConfig.getParameter<string>("PileUpInfo");
 
-    	Service<TFileService> tfserv;
 
+	vector<JetCorrectorParameters> jecPars;
 
+    	JetCorrectorParameters ijec("test.txt");
+    	jecPars.push_back(ijec);
+    
+	jec = new FactorizedJetCorrector(jecPars);
 }
 
 
@@ -209,6 +211,9 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	// loop over all reco jet collections
 	for(unsigned rjc_ite=0; rjc_ite<input_RecoJets_.size(); rjc_ite++){
 
+	  string rhoLabel = input_RecoJets_[rjc_ite];
+	  rhoLabel.erase(rhoLabel.length()-1,1);
+
 	  char etaName[256];
 	  sprintf(etaName,"etaRecoRatio_%s",input_RecoJets_[rjc_ite].c_str());
   	  TH3F* etaRatioHisto = tfserv->make<TH3F>(etaName,etaName, 50, -5.0, 5.0, 200, 0., 2.0, 5, 0, 25);
@@ -231,11 +236,14 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  Handle<vector<float> > jetAreaH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"jetArea",jetAreaH);
 
-	  Handle<vector<float> > jetRhoH;
-    	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"rho",jetRhoH);
-     	  float rho = jetRhoH->at(0);
+	  Handle<double > jetRhoH;
+    	  iEvent.getByLabel( rhoLabel,"rho",jetRhoH);
+     	  double rho = jetRhoH.product()[0];
 
- 	  for(unsigned reco_ite=0; reco_ite<2; reco_ite++){
+	  unsigned numJets = 2;
+	  if(jetPtH->size()<2) numJets = jetPtH->size();
+
+ 	  for(unsigned reco_ite=0; reco_ite<numJets; reco_ite++){
  	  
 	    if(jetPtH->at(reco_ite)<30.0) continue;
 
@@ -248,7 +256,7 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             jec->setJetPt(jetPtH->at(reco_ite));
             jec->setJetA(jetAreaH->at(reco_ite));
             jec->setRho(rho);
-            double factor = jec->getCorrection();
+            float factor = jec->getCorrection();
 
 	    TLV genJet;
             if (findGenJet(recoJet,genJets,&genJet)){
@@ -278,24 +286,7 @@ JetAnlzr::endJob()
 // ------------ method called when starting to processes a run  ------------
 void 
 JetAnlzr::beginRun(edm::Run const&, edm::EventSetup const&)
-{
-
-	ifstream jecStr("Jec11_V3_All.txt");
-
-	char line[256];
-
-	vector<JetCorrectorParameters> jecPars;
-
- 	if (jecStr.is_open()){
-    	  while (jecStr.good()){
-            if (jecStr.eof()) break;
-      	    jecStr.getline(line,256);
-    	    JetCorrectorParameters ijec(line);
-    	    jecPars.push_back(ijec);
-    	  }
-	}
-    
-	jec = new FactorizedJetCorrector(jecPars); 
+{ 
 }
 
 // ------------ method called when ending the processing of a run  ------------
