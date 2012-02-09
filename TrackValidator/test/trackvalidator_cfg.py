@@ -9,7 +9,7 @@ process.source = cms.Source("PoolSource",
 )
 		
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(10)
+    input = cms.untracked.int32(100)
 )
 
 process.TFileService = cms.Service('TFileService',
@@ -45,6 +45,7 @@ process.demo = cms.EDAnalyzer('TrackValidator',
     	PULabel = cms.InputTag("addPileupInfo"),
     	TPLabel = cms.InputTag("mergedtruth","MergedTrackTruth"),
 	ignoremissingtrackcollection=cms.bool(False),
+	UseLogPt=cms.bool(True),
 	generalTpSelector = TrackingParticleSelectionGeneral,
 )
 
