@@ -1,0 +1,15 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/PluginManager"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/ServiceRegistry"/>
+<use name="PhysicsTools/Utilities"/>
+<use name="PhysicsTools/UtilAlgos"/>
+<use name="MGeisler/TrackValidator"/>
+<use name="SimDataFormats/PileupSummaryInfo"/>
+<use name="SimDataFormats/TrackingAnalysis"/>
+<use name="DataFormats/RecoCandidate"/>
+<use name="SimTracker/Records"/>
+<use name="SimTracker/TrackAssociation"/>
+<library   file="*.cc" name="TrackValidatorPlugins">
+  <flags   EDM_PLUGIN="1"/>
+</library>
