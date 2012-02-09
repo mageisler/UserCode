@@ -26,7 +26,7 @@
    
 using namespace edm;
 using namespace std;
-// using namespace reco;
+using namespace reco;
 
 TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
 {
@@ -380,119 +380,70 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
     }
   }
 
-  if(isMatched){
+  if(isMatched){ // means that a TP has been found, no matter of signal or not
  
     TrackingParticle trackpart = *(refTp[0].first);
 
-    //Signal tracks
-    if((*generalTpSignalSelector)(trackpart)){
-
-      // vs eta
-      for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-        if (refTrack.eta()>etaintervals[counter][f]&&
-            refTrack.eta()<etaintervals[counter][f+1]) {
-          allSigRT_eta[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
-
-      // vs pT
-      for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-        if (sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&
-            sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]) {
-          allSigRT_pT[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-
-      // vs npu
-      for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-        if (npu == vertcountintervals[counter][f]) {
-          allSigRT_npu[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-
-    }// END for (((*generalTpPUSelector)(trackpart)) && (!(*generalTpSignalSelector)(trackpart)))
-
-
-    //PU tracks
-    if(((*generalTpPUSelector)(trackpart)) && (!(*generalTpSignalSelector)(trackpart))){
-
-      // vs eta
-      for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-        if (refTrack.eta()>etaintervals[counter][f]&&
-            refTrack.eta()<etaintervals[counter][f+1]) {
-          allPURT_eta[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
-
-      // vs pT
-      for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-        if (sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&
-            sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]) {
-          allPURT_pT[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-
-      // vs npu
-      for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-        if (npu == vertcountintervals[counter][f]) {
-          allPURT_npu[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-
-    }// END for (((*generalTpPUSelector)(trackpart)) && (!(*generalTpSignalSelector)(trackpart)))
-
-  } // END for (isMatched)
-
-  if(isRemoved){
-
-    //PU fake rate vs eta
+    // vs eta
     for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
       if (refTrack.eta()>etaintervals[counter][f]&&
           refTrack.eta()<etaintervals[counter][f+1]) {
-        allRemovedRT_eta[counter][f]++;
-        if (isMatched){
+        if(isSigMatched){
+          allSigRT_eta[counter][f]++; 
+        }else{
+  	  allPURT_eta[counter][f]++; 
+        }   
+        if(isRemoved){
+          allRemovedRT_eta[counter][f]++;
           if(isSigMatched){
-  	    removedSigRT_eta[counter][f]++;
+            removedSigRT_eta[counter][f]++; 
           }else{
-  	    removedPURT_eta[counter][f]++;
+  	    removedPURT_eta[counter][f]++; 
           }
-        }
-        break;
-      }
-    } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
+        } // END if(isRemoved){
+      } // END if(refTrack.eta()>etaintervals[counter][f]&&refTrack.eta()<etaintervals[counter][f+1){
+    } // END for(unsigned int f=0; f<etaintervals[w].size()-1; f++){
 
-    //PU fake rate vs pT
+    // vs pt
     for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
       if (sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&
           sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]) {
-        allRemovedRT_pT[counter][f]++; 
-        if (isMatched){
+        if(isSigMatched){
+          allSigRT_pT[counter][f]++; 
+        }else{
+  	  allPURT_pT[counter][f]++; 
+        }   
+        if(isRemoved){
+          allRemovedRT_pT[counter][f]++;
           if(isSigMatched){
-	    removedSigRT_pT[counter][f]++;
+            removedSigRT_pT[counter][f]++; 
           }else{
-  	    removedPURT_pT[counter][f]++;
+  	    removedPURT_pT[counter][f]++; 
           }
-        }
-        break;   
-      }
-    } // End for (unsigned int f=0; f<pTintervals[count].size()-1; f++){
+        } // END if(isRemoved){
+      } // END if(sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]){
+    } // END for(unsigned int f=0; f<pTintervals[counter].size()-1; f++){
 
-    //PU fake rate vs num pileup vertices
+    // vs npu
     for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
       if (npu == vertcountintervals[counter][f]) {
-        allRemovedRT_npu[counter][f]++;
-        if (isMatched){
+        if(isSigMatched){
+          allSigRT_npu[counter][f]++; 
+        }else{
+  	  allPURT_npu[counter][f]++; 
+        }   
+        if(isRemoved){
+          allRemovedRT_npu[counter][f]++;
           if(isSigMatched){
-	    removedSigRT_npu[counter][f]++;
+            removedSigRT_npu[counter][f]++; 
           }else{
-  	    removedPURT_npu[counter][f]++;
+  	    removedPURT_npu[counter][f]++; 
           }
-        }
-        break;
-      }    
-    } // End for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
+        } // END if(isRemoved){
+      } // END if(npu == vertcountintervals[counter][f]){
+    } // END for(unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
 
-  } // End for (isRemoved)
+  }// END for (isMatched)
  
 }
 
