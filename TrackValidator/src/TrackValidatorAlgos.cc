@@ -64,6 +64,18 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
 
   generalTpPUSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(generalTpPUSelectorPSet));
 
+  // fix for the LogScale by Ryan
+  useLogPt_ = iConfig.getParameter<bool>("UseLogPt");
+
+  if(useLogPt_){
+    maxPt=log10(maxPt);
+    if(minPt > 0){
+      minPt=log10(minPt);
+    }else{
+      minPt=log10(0.1);
+    }
+  }
+
 }
 
 
@@ -107,7 +119,12 @@ TrackValidatorAlgos::setUpVectors()
 
   for (int k=1;k<nintPt+1;k++) {
 
-    double d=minPt+k*pT_step;
+    double d;
+    if(useLogPt_){
+      d=pow(10,minPt+k*pT_step);
+    }else{
+      d=minPt+k*pT_step;
+    }
     pTintervalsv.push_back(d);
     pTintervalsh.push_back(0);
 
