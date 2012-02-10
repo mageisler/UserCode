@@ -65,7 +65,7 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
   generalTpPUSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(generalTpPUSelectorPSet));
 
   // fix for the LogScale by Ryan
-  useLogpt_ = iConfig.getParameter<bool>("UseLogpt");
+  useLogpt_ = iConfig.getParameter<bool>("UseLogPt");
 
   if(useLogpt_){
     maxpt=log10(maxpt);
