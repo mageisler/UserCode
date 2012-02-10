@@ -219,6 +219,14 @@ TrackValidatorAlgos::BookHistos(TFileDirectory subDir)
   num_removed_reco_PU_eta.push_back(subDir.make<TH1F>("num_removed_reco_PU_eta", "Number of removed reconstructed pileup tracks vs eta", nintEta, minEta, maxEta));
   num_reco_PU_eta.push_back(subDir.make<TH1F>("num_reco_PU_eta", "Number of reconstructed pileup tracks vs eta", nintEta, minEta, maxEta));
 
+  num_removed_reco_signal_pt.push_back(subDir.make<TH1F>("num_removed_reco_signal_pt", "Number of removed reconstructed signal tracks vs pt", nintpt, minpt, maxpt));
+  num_removed_reco_pt.push_back(subDir.make<TH1F>("num_removed_reco_pt", "Number of removed reconstructed tracks vs pt", nintpt, minpt, maxpt));
+  num_removed_reco_PU_pt.push_back(subDir.make<TH1F>("num_removed_reco_PU_pt", "Number of removed reconstructed pileup tracks vs pt", nintpt, minpt, maxpt));
+
+  num_removed_reco_signal_npu.push_back(subDir.make<TH1F>("num_removed_reco_signal_npu", "Number of removed reconstructed signal tracks vs npu", nintVertcount, minVertcount, maxVertcount));
+  num_removed_reco_npu.push_back(subDir.make<TH1F>("num_removed_reco_npu", "Number of removed reconstructed tracks vs npu", nintVertcount, minVertcount, maxVertcount));
+  num_removed_reco_PU_npu.push_back(subDir.make<TH1F>("num_removed_reco_PU_npu", "Number of removed reconstructed pileup tracks vs npu", nintVertcount, minVertcount, maxVertcount));
+
   //Book association related histograms
 
   num_assoc_eta.push_back(subDir.make<TH1F>("num_assoc(simToReco)_eta", "Number of associated simulated tracks vs eta", nintEta, minEta, maxEta));
