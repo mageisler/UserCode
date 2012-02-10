@@ -93,13 +93,15 @@ class TrackValidatorAlgos{
 
   //private data members  
 
+  bool useLogpt_;
+
   TrackingParticleSelector* generalTpSignalSelector;
   TrackingParticleSelector* generalTpPUSelector;
 
   //parameters for the histograms
 
   double minEta, maxEta;  int nintEta;
-  double minPt, maxPt;  int nintPt;
+  double minpt, maxpt;  int nintpt;
   double minVertcount, maxVertcount;  int nintVertcount;
   double minTrackcount, maxTrackcount;  int nintTrackcount;
 
@@ -125,29 +127,35 @@ class TrackValidatorAlgos{
   vector<TH1F*> num_removed_reco_signal_eta; vector<TH1F*> num_removed_reco_eta;
   vector<TH1F*> num_removed_reco_PU_eta; vector<TH1F*> num_reco_PU_eta;
 
+  vector<TH1F*> num_removed_reco_signal_pt; vector<TH1F*> num_removed_reco_pt;
+  vector<TH1F*> num_removed_reco_PU_pt;
+
+  vector<TH1F*> num_removed_reco_signal_npu; vector<TH1F*> num_removed_reco_npu;
+  vector<TH1F*> num_removed_reco_PU_npu;
+
   vector<TH1F*> num_assoc_eta; vector<TH1F*> num_assoc2_eta;
 
 
   //vectors
 
   vector< vector<double> > etaintervals;
-  vector< vector<double> > pTintervals;
+  vector< vector<double> > ptintervals;
   vector< vector<double> > vertcountintervals;
 
   vector< vector<int> > allSignalTP_eta, allRT_eta;
   vector< vector<int> > allSignalTP_npu, allRT_npu;
-  vector< vector<int> > allSignalTP_pT,  allRT_pT;
+  vector< vector<int> > allSignalTP_pt,  allRT_pt;
 
-  vector< vector<int> > assSignalTP_eta, assSignalTP_npu, assSignalTP_pT;
-  vector< vector<int> > assSignalRT_eta, assSignalRT_npu, assSignalRT_pT;
+  vector< vector<int> > assSignalTP_eta, assSignalTP_npu, assSignalTP_pt;
+  vector< vector<int> > assSignalRT_eta, assSignalRT_npu, assSignalRT_pt;
 
   vector< vector<int> > allSigRT_eta, allPURT_eta, allAssPURT_eta;
-  vector< vector<int> > allSigRT_pT,  allPURT_pT;
+  vector< vector<int> > allSigRT_pt,  allPURT_pt;
   vector< vector<int> > allSigRT_npu, allPURT_npu;
 
-  vector< vector<int> > allRemovedRT_eta, allRemovedRT_npu, allRemovedRT_pT;
-  vector< vector<int> > removedSigRT_eta, removedSigRT_npu, removedSigRT_pT;
-  vector< vector<int> > removedPURT_eta,  removedPURT_npu,  removedPURT_pT;
+  vector< vector<int> > allRemovedRT_eta, allRemovedRT_npu, allRemovedRT_pt;
+  vector< vector<int> > removedSigRT_eta, removedSigRT_npu, removedSigRT_pt;
+  vector< vector<int> > removedPURT_eta,  removedPURT_npu,  removedPURT_pt;
 
 
   vector<int> sim_tracks;

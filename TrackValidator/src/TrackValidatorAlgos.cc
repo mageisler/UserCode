@@ -36,9 +36,9 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
   nintEta = 50;
 
   //parameters for vs_pt plots
-  minPt  = 0.1;
-  maxPt  = 1000.;
-  nintPt = 40;
+  minpt  = 0.1;
+  maxpt  = 1000.;
+  nintpt = 40;
   
   //parameters for Pileup plots
   minVertcount  = 0.;
@@ -65,14 +65,14 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
   generalTpPUSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(generalTpPUSelectorPSet));
 
   // fix for the LogScale by Ryan
-  useLogPt_ = iConfig.getParameter<bool>("UseLogPt");
+  useLogpt_ = iConfig.getParameter<bool>("UseLogpt");
 
-  if(useLogPt_){
-    maxPt=log10(maxPt);
-    if(minPt > 0){
-      minPt=log10(minPt);
+  if(useLogpt_){
+    maxpt=log10(maxpt);
+    if(minpt > 0){
+      minpt=log10(minpt);
     }else{
-      minPt=log10(0.1);
+      minpt=log10(0.1);
     }
   }
 
@@ -110,36 +110,36 @@ TrackValidatorAlgos::setUpVectors()
   removedSigRT_eta.push_back(etaintervalsh);
   removedPURT_eta.push_back(etaintervalsh);
 
-  // pT vectors
-  vector<double> pTintervalsv;
-  vector<int> pTintervalsh;
+  // pt vectors
+  vector<double> ptintervalsv;
+  vector<int> ptintervalsh;
 
-  double pT_step=(maxPt-minPt)/nintPt;
-  pTintervalsv.push_back(minPt);
+  double pt_step=(maxpt-minpt)/nintpt;
+  ptintervalsv.push_back(minpt);
 
-  for (int k=1;k<nintPt+1;k++) {
+  for (int k=1;k<nintpt+1;k++) {
 
     double d;
-    if(useLogPt_){
-      d=pow(10,minPt+k*pT_step);
+    if(useLogpt_){
+      d=pow(10,minpt+k*pt_step);
     }else{
-      d=minPt+k*pT_step;
+      d=minpt+k*pt_step;
     }
-    pTintervalsv.push_back(d);
-    pTintervalsh.push_back(0);
+    ptintervalsv.push_back(d);
+    ptintervalsh.push_back(0);
 
   }
 
-  pTintervals.push_back(pTintervalsv);
-  allSignalTP_pT.push_back(pTintervalsh);
-  allRT_pT.push_back(pTintervalsh);
-  assSignalTP_pT.push_back(pTintervalsh);
-  assSignalRT_pT.push_back(pTintervalsh);
-  allSigRT_pT.push_back(pTintervalsh);
-  allPURT_pT.push_back(pTintervalsh);
-  allRemovedRT_pT.push_back(pTintervalsh);
-  removedSigRT_pT.push_back(pTintervalsh);
-  removedPURT_pT.push_back(pTintervalsh);
+  ptintervals.push_back(ptintervalsv);
+  allSignalTP_pt.push_back(ptintervalsh);
+  allRT_pt.push_back(ptintervalsh);
+  assSignalTP_pt.push_back(ptintervalsh);
+  assSignalRT_pt.push_back(ptintervalsh);
+  allSigRT_pt.push_back(ptintervalsh);
+  allPURT_pt.push_back(ptintervalsh);
+  allRemovedRT_pt.push_back(ptintervalsh);
+  removedSigRT_pt.push_back(ptintervalsh);
+  removedPURT_pt.push_back(ptintervalsh);
 
   // npu vectors
   vector<double> vertcountintervalsv;
@@ -181,25 +181,25 @@ TrackValidatorAlgos::BookHistos(TFileDirectory subDir)
   //Book PileUp related histograms
 
   PU_effic_eta.push_back(subDir.make<TH1F>("PU_effic_eta", "PU_effic vs eta", nintEta, minEta, maxEta));
-  PU_effic_pt.push_back(subDir.make<TH1F>("PU_effic_pt", "PU_effic vs pt", nintPt, minPt, maxPt));
+  PU_effic_pt.push_back(subDir.make<TH1F>("PU_effic_pt", "PU_effic vs pt", nintpt, minpt, maxpt));
   PU_effic_npu.push_back(subDir.make<TH1F>("PU_effic_npu", "PU_effic vs npu", nintVertcount, minVertcount, maxVertcount));
 
   PU_fakerate_1_eta.push_back(subDir.make<TH1F>("PU_fakerate_1_eta", "PU_fakerate 1 vs eta", nintEta, minEta, maxEta));
-  PU_fakerate_1_pt.push_back(subDir.make<TH1F>("PU_fakerate_1_pt", "PU_fakerate 1 vs pt", nintPt, minPt, maxPt));
+  PU_fakerate_1_pt.push_back(subDir.make<TH1F>("PU_fakerate_1_pt", "PU_fakerate 1 vs pt", nintpt, minpt, maxpt));
   PU_fakerate_1_npu.push_back(subDir.make<TH1F>("PU_fakerate_1_npu", "PU_fakerate 1 vs npu", nintVertcount, minVertcount, maxVertcount));
 
   PU_fakerate_2_eta.push_back(subDir.make<TH1F>("PU_fakerate_2_eta", "PU_fakerate 2 vs eta", nintEta, minEta, maxEta));
-  PU_fakerate_2_pt.push_back(subDir.make<TH1F>("PU_fakerate_2_pt", "PU_fakerate 2 vs pt", nintPt, minPt, maxPt));
+  PU_fakerate_2_pt.push_back(subDir.make<TH1F>("PU_fakerate_2_pt", "PU_fakerate 2 vs pt", nintpt, minpt, maxpt));
   PU_fakerate_2_npu.push_back(subDir.make<TH1F>("PU_fakerate_2_npu", "PU_fakerate 2 vs npu", nintVertcount, minVertcount, maxVertcount));
 
   //Book efficiency and fakerate histograms
 
   effic_eta.push_back(subDir.make<TH1F>("effic_eta", "effic vs eta", nintEta, minEta, maxEta));
-  effic_pt.push_back(subDir.make<TH1F>("effic_pt", "effic vs pt", nintPt, minPt, maxPt));
+  effic_pt.push_back(subDir.make<TH1F>("effic_pt", "effic vs pt", nintpt, minpt, maxpt));
   effic_npu.push_back(subDir.make<TH1F>("effic_npu", "effic vs npu", nintVertcount, minVertcount, maxVertcount));
 
   fakerate_eta.push_back(subDir.make<TH1F>("fakerate_eta", "fakerate vs eta", nintEta, minEta, maxEta));
-  fakerate_pt.push_back(subDir.make<TH1F>("fakerate_pt", "fakerate vs pt", nintPt, minPt, maxPt));
+  fakerate_pt.push_back(subDir.make<TH1F>("fakerate_pt", "fakerate vs pt", nintpt, minpt, maxpt));
   fakerate_npu.push_back(subDir.make<TH1F>("fakerate_npu", "fakerate vs npu", nintVertcount, minVertcount, maxVertcount));
 
   //Book simulation related histograms
@@ -269,17 +269,17 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
       }
     } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
 
-    //effic vs pT
-    for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-      if (sqrt(tp->momentum().perp2())>pTintervals[counter][f]&&
-	  sqrt(tp->momentum().perp2())<pTintervals[counter][f+1]) {
-        allSignalTP_pT[counter][f]++; 
+    //effic vs pt
+    for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
+      if (sqrt(tp->momentum().perp2())>ptintervals[counter][f]&&
+	  sqrt(tp->momentum().perp2())<ptintervals[counter][f+1]) {
+        allSignalTP_pt[counter][f]++; 
         if (isMatched) {
-	  assSignalTP_pT[counter][f]++;
+	  assSignalTP_pt[counter][f]++;
         }	
         break;      
       }
-    } // End for (unsigned int f=0; f<pTintervals[count].size()-1; f++){
+    } // End for (unsigned int f=0; f<ptintervals[count].size()-1; f++){
 
     //effic vs num pileup vertices
     for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
@@ -330,17 +330,17 @@ TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track
     }
   } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
 
-  //fake rate vs pT
-  for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-    if (sqrt(track.momentum().perp2())>pTintervals[counter][f]&&
-        sqrt(track.momentum().perp2())<pTintervals[counter][f+1]) {
-      allRT_pT[counter][f]++; 
+  //fake rate vs pt
+  for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
+    if (sqrt(track.momentum().perp2())>ptintervals[counter][f]&&
+        sqrt(track.momentum().perp2())<ptintervals[counter][f+1]) {
+      allRT_pt[counter][f]++; 
       if (isSigMatched) {
-	assSignalRT_pT[counter][f]++;
+	assSignalRT_pt[counter][f]++;
       }	  
       break;    
     }
-  } // End for (unsigned int f=0; f<pTintervals[count].size()-1; f++){
+  } // End for (unsigned int f=0; f<ptintervals[count].size()-1; f++){
 
   //fake rate vs num pileup vertices
   for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
@@ -422,24 +422,24 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
     } // END for(unsigned int f=0; f<etaintervals[w].size()-1; f++){
 
     // vs pt
-    for (unsigned int f=0; f<pTintervals[counter].size()-1; f++){
-      if (sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&
-          sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]) {
+    for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
+      if (sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&
+          sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]) {
         if(isSigMatched){
-          allSigRT_pT[counter][f]++; 
+          allSigRT_pt[counter][f]++; 
         }else{
-  	  allPURT_pT[counter][f]++; 
+  	  allPURT_pt[counter][f]++; 
         }   
         if(isRemoved){
-          allRemovedRT_pT[counter][f]++;
+          allRemovedRT_pt[counter][f]++;
           if(isSigMatched){
-            removedSigRT_pT[counter][f]++; 
+            removedSigRT_pt[counter][f]++; 
           }else{
-  	    removedPURT_pT[counter][f]++; 
+  	    removedPURT_pt[counter][f]++; 
           }
         } // END if(isRemoved){
-      } // END if(sqrt(refTrack.momentum().perp2())>pTintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<pTintervals[counter][f+1]){
-    } // END for(unsigned int f=0; f<pTintervals[counter].size()-1; f++){
+      } // END if(sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]){
+    } // END for(unsigned int f=0; f<ptintervals[counter].size()-1; f++){
 
     // vs npu
     for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
@@ -469,23 +469,23 @@ TrackValidatorAlgos::fillFractionHistosFromVectors(int counter)
 {
 
   fillFractionHisto(effic_eta[counter],assSignalTP_eta[counter],allSignalTP_eta[counter],"effic");
-  fillFractionHisto(effic_pt[counter],assSignalTP_pT[counter],allSignalTP_pT[counter],"effic");
+  fillFractionHisto(effic_pt[counter],assSignalTP_pt[counter],allSignalTP_pt[counter],"effic");
   fillFractionHisto(effic_npu[counter],assSignalTP_npu[counter],allSignalTP_npu[counter],"effic");
 
   fillFractionHisto(fakerate_eta[counter],assSignalRT_eta[counter],allRT_eta[counter],"fakerate");
-  fillFractionHisto(fakerate_pt[counter],assSignalRT_pT[counter],allRT_pT[counter],"fakerate");
+  fillFractionHisto(fakerate_pt[counter],assSignalRT_pt[counter],allRT_pt[counter],"fakerate");
   fillFractionHisto(fakerate_npu[counter],assSignalRT_npu[counter],allRT_npu[counter],"fakerate");
 
   fillFractionHisto(PU_effic_eta[counter],removedPURT_eta[counter],allPURT_eta[counter],"effic");
-  fillFractionHisto(PU_effic_pt[counter],removedPURT_pT[counter],allPURT_pT[counter],"effic");
+  fillFractionHisto(PU_effic_pt[counter],removedPURT_pt[counter],allPURT_pt[counter],"effic");
   fillFractionHisto(PU_effic_npu[counter],removedPURT_npu[counter],allPURT_npu[counter],"effic");
 
   fillFractionHisto(PU_fakerate_1_eta[counter],removedSigRT_eta[counter],allRemovedRT_eta[counter],"effic");
-  fillFractionHisto(PU_fakerate_1_pt[counter],removedSigRT_pT[counter],allRemovedRT_pT[counter],"effic");
+  fillFractionHisto(PU_fakerate_1_pt[counter],removedSigRT_pt[counter],allRemovedRT_pt[counter],"effic");
   fillFractionHisto(PU_fakerate_1_npu[counter],removedSigRT_npu[counter],allRemovedRT_npu[counter],"effic");
 
   fillFractionHisto(PU_fakerate_2_eta[counter],removedSigRT_eta[counter],allSigRT_eta[counter],"effic");
-  fillFractionHisto(PU_fakerate_2_pt[counter],removedSigRT_pT[counter],allSigRT_pT[counter],"effic");
+  fillFractionHisto(PU_fakerate_2_pt[counter],removedSigRT_pt[counter],allSigRT_pt[counter],"effic");
   fillFractionHisto(PU_fakerate_2_npu[counter],removedSigRT_npu[counter],allSigRT_npu[counter],"effic");
 
 }
@@ -503,6 +503,14 @@ TrackValidatorAlgos::fillHistosFromVectors(int counter)
   fillPlotFromVector(num_removed_reco_signal_eta[counter],removedSigRT_eta[counter]);
   fillPlotFromVector(num_removed_reco_eta[counter],allRemovedRT_eta[counter]);
   fillPlotFromVector(num_removed_reco_PU_eta[counter],removedPURT_eta[counter]);
+
+  fillPlotFromVector(num_removed_reco_signal_pt[counter],removedSigRT_pt[counter]);
+  fillPlotFromVector(num_removed_reco_pt[counter],allRemovedRT_pt[counter]);
+  fillPlotFromVector(num_removed_reco_PU_pt[counter],removedPURT_pt[counter]);
+
+  fillPlotFromVector(num_removed_reco_signal_npu[counter],removedSigRT_npu[counter]);
+  fillPlotFromVector(num_removed_reco_npu[counter],allRemovedRT_npu[counter]);
+  fillPlotFromVector(num_removed_reco_PU_npu[counter],removedPURT_npu[counter]);
 
   fillPlotFromVector(num_reco_PU_eta[counter],allAssPURT_eta[counter]);
 
