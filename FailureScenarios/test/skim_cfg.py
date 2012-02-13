@@ -7,8 +7,8 @@ process = cms.Process('SKIM')
 
 # import of standard configurations
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
-process.load('MGeisler.TrackerPlots.SkimOutputContent_cff')
-process.load('MGeisler.TrackerPlots.Draft_FileList_cff')
+process.load('MGeisler.FailureScenarios.SkimOutputContent_cff')
+process.load('MGeisler.FailureScenarios.Draft_FileList_cff')
 
 process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(1)
@@ -61,7 +61,7 @@ if len(sys.argv) > 2:
     process.SKIMoutput.fileName = OutName
     print "outputfile set to "+OutName+" \n"
 
-from MGeisler.TrackerPlots.sourceFiles_cfi import *
+from MGeisler.FailureScenarios.sourceFiles_cfi import *
 process.source.fileNames.extend(GetFileNames(abbr, input))
 	
 process.SKIMoutput.outputCommands.extend(process.SkimOutputContent.outputCommands)

@@ -1,5 +1,5 @@
 import os, fcntl, fcntl, select, sys, subprocess, math, array, getopt
-from MGeisler.TrackerPlots.sourceFiles_cfi import *
+from MGeisler.FailureScenarios.sourceFiles_cfi import *
 
 print "\n This script should skim the failure scenario files to a usable size \n" 
 

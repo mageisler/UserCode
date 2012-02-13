@@ -2,7 +2,7 @@
 
 import FWCore.ParameterSet.Config as cms
 import sys, os, math, array, ROOT
-from MGeisler.TrackerPlots.sourceFiles_cfi import *
+from MGeisler.FailureScenarios.sourceFiles_cfi import *
 
 
 ROOT.gROOT.Macro( os.path.expanduser( '~/Phd-Study/CMSSW/Helpers/SetPrettyStyle.C' ) )

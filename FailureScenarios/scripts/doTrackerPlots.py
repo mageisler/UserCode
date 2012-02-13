@@ -1,7 +1,7 @@
 import os, fcntl, fcntl, select, sys, subprocess, math, array, getopt
 import FWCore.ParameterSet.Config as cms
-from MGeisler.TrackerPlots.sourceFiles_cfi import *
-from MGeisler.TrackerPlots.failureScenarioTools_cfi import *
+from MGeisler.FailureScenarios.sourceFiles_cfi import *
+from MGeisler.FailureScenarios.failureScenarioTools_cfi import *
 
 print "\n This script should create the trackerplots from the failure scenarios \n" 
 
