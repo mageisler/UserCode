@@ -16,7 +16,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id$
+// $Id: TrackValidatorAlgos.h,v 1.2 2012/02/10 12:47:28 mgeisler Exp $
 //
 //
 
@@ -68,7 +68,7 @@ class TrackValidatorAlgos{
 
     void fill_recoAssociated_simTrack_histos(int,TrackingParticle*,const Track*,int);
 
-    void fill_simAssociated_recoTrack_histos(int,const Track&,vector<pair<TrackingParticleRef, double> >,int);
+    void fill_simAssociated_recoTrack_histos(int,const Track&,bool,bool,int);
 
     void fill_removedRecoTrack_histos(int,const Track&,vector<pair<TrackingParticleRef, double> >,bool,int);
 

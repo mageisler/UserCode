@@ -266,11 +266,11 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
     sim_tracks[counter]++;
 
     //effic vs eta
-    for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-      if (tp_eta>etaintervals[counter][f]&&
-	  tp_eta<etaintervals[counter][f+1]) {
+    for(unsigned int f=0; f<etaintervals[counter].size()-1; f++){
+      if(tp_eta>etaintervals[counter][f]&&
+	 tp_eta<etaintervals[counter][f+1]){
 	allSignalTP_eta[counter][f]++;
-	if (isMatched) {
+	if(isMatched){
 	  assSignalTP_eta[counter][f]++;
 	}
         break;
@@ -278,11 +278,11 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
     } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
 
     //effic vs pt
-    for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
-      if (sqrt(tp->momentum().perp2())>ptintervals[counter][f]&&
-	  sqrt(tp->momentum().perp2())<ptintervals[counter][f+1]) {
+    for(unsigned int f=0; f<ptintervals[counter].size()-1; f++){
+      if(sqrt(tp->momentum().perp2())>ptintervals[counter][f]&&
+	 sqrt(tp->momentum().perp2())<ptintervals[counter][f+1]){
         allSignalTP_pt[counter][f]++; 
-        if (isMatched) {
+        if(isMatched){
 	  assSignalTP_pt[counter][f]++;
         }	
         break;      
@@ -290,10 +290,10 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
     } // End for (unsigned int f=0; f<ptintervals[count].size()-1; f++){
 
     //effic vs num pileup vertices
-    for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-      if (npu == vertcountintervals[counter][f]) {
+    for(unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
+      if(npu == vertcountintervals[counter][f]){
         allSignalTP_npu[counter][f]++;
-        if (isMatched) {
+        if(isMatched){
           assSignalTP_npu[counter][f]++;
         }
         break;
@@ -306,33 +306,18 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
 }
 
 void 
-TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track& track,vector<pair<TrackingParticleRef, double> > tp,int npu)
+TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track& track,bool isMatched,bool isSigMatched,int npu)
 {
-
-  bool isMatched = false;
-  bool isSigMatched = false;
-
-  if (tp.size()!=0) {
-    
-    isMatched = true;
-    for (unsigned int tp_ite=0;tp_ite<tp.size();++tp_ite){ 
-
-      TrackingParticle trackpart = *(tp[tp_ite].first);
-      if ((*generalTpSignalSelector)(trackpart)){
-        isSigMatched = true;
-        break;
-      }
-
-    }
-  }
 
   //fake rate vs eta
   for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
     if (track.eta()>etaintervals[counter][f]&&
         track.eta()<etaintervals[counter][f+1]) {
       allRT_eta[counter][f]++;
-      if (isSigMatched) {
+      if (isSigMatched){
 	assSignalRT_eta[counter][f]++;
+      }else{
+        if(isMatched) allAssPURT_eta[counter][f]++;
       }
       break;
     }
@@ -343,7 +328,7 @@ TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track
     if (sqrt(track.momentum().perp2())>ptintervals[counter][f]&&
         sqrt(track.momentum().perp2())<ptintervals[counter][f+1]) {
       allRT_pt[counter][f]++; 
-      if (isSigMatched) {
+      if (isSigMatched){
 	assSignalRT_pt[counter][f]++;
       }	  
       break;    
@@ -354,32 +339,12 @@ TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track
   for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
     if (npu == vertcountintervals[counter][f]) {
       allRT_npu[counter][f]++;
-      if (isSigMatched) {
+      if (isSigMatched){
         assSignalRT_npu[counter][f]++;
       }
       break;
     }    
   }// End for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-
-  //pileup related
-
-  if(isMatched){
- 
-    TrackingParticle trackpart = *(tp[0].first);
-
-    if(((*generalTpPUSelector)(trackpart)) && (!(*generalTpSignalSelector)(trackpart))){
-
-      // vs eta
-      for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-        if (track.eta()>etaintervals[counter][f]&&
-            track.eta()<etaintervals[counter][f+1]) {
-          allAssPURT_eta[counter][f]++;
-        }
-      } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
-
-    }// END for (((*generalTpPUSelector)(trackpart)) && (!(*generalTpSignalSelector)(trackpart)))
-
-  } // END for (isMatched)
 
 
 }

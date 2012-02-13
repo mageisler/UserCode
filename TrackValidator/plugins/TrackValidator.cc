@@ -173,7 +173,26 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       vector<pair<TrackingParticleRef, double> > tp;
       if(recSimColl.find(track) != recSimColl.end()) tp = recSimColl[track];
 
-      TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(tcl,*track,tp,npu);
+      bool isMatched = false;
+      bool isSigMatched = false;
+
+      if (tp.size()!=0) {
+
+        isMatched = true;
+        for (unsigned int tp_ite=0;tp_ite<tp.size();++tp_ite){ 
+
+          TrackingParticle trackpart = *(tp[tp_ite].first);
+
+          if ((trackpart.eventId().event() == 0) && (trackpart.eventId().bunchCrossing() == 0)){
+            isSigMatched = true;
+            break;
+          }
+
+        }
+
+      }
+
+      TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(tcl,*track,isMatched,isSigMatched,npu);
 
     }
 
