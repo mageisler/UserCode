@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Wed Aug 24 11:08:27 CEST 2011
-// $Id$
+// $Id: FirstVertexAnlzr.cc,v 1.1 2011/10/24 14:44:28 mgeisler Exp $
 //
 //
 #include "MGeisler/PF_PU_AssoMap/interface/PF_PU_AssoMap.h"
@@ -142,15 +142,12 @@ class FirstVertexAnlzr : public edm::EDAnalyzer {
 //
 // constructors and destructor
 //
-FirstVertexAnlzr::FirstVertexAnlzr(const edm::ParameterSet& iConfig):LumiWeights_("Lumi_GluGluToHiggsToGG.root","Lumi_Data.root","pileup","pileup_Data_Flat10Tail")
-
+FirstVertexAnlzr::FirstVertexAnlzr(const edm::ParameterSet& iConfig)
 {
    //now do what ever initialization is needed
 	using namespace reco::modules;
 
       	dbe_ = Service<DQMStore>().operator->();
-
-	LumiWeights_.weight3D_init();
 
   	ParameterSet TpSelectorPSet = iConfig.getParameter<ParameterSet>("TrackingParticleSelection");
 	tpSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(TpSelectorPSet));
@@ -176,8 +173,7 @@ void
 FirstVertexAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 { 
 
-	const edm::EventBase* iEventB = &iEvent;
-  	double MyWeight3D = LumiWeights_.weight3D( (*iEventB) );
+  	double MyWeight3D = 1.;
   
 	//get the input vertex<->general track association map
   	Handle<TrackVertexAssMap> GTassomap;
