@@ -62,35 +62,17 @@ class TrackValidator : public EDAnalyzer, private TrackValidatorAlgos {
   InputTag tcRefLabel_;
   vector<InputTag> tcLabels_;
 
+  vector<InputTag> pfLabels_;
+
   InputTag puLabel_;
   InputTag tpLabel_;
 
   bool ignoremissingtkcollection_;
 
-
-//   string dirName_;
-//   InputTag associatormap;
-//   bool UseAssociators;
-// 
-//   bool useGsf;
-//   bool runStandalone;
-//   TrackingParticleSelector tpSelector;				      
-//   CosmicTrackingParticleSelector cosmictpSelector;
-//   MTVHistoProducerAlgo* histoProducerAlgo_;
-// 
-//   vector<string> associators;
-//   string sim;
-//   string parametersDefiner;
-// 
-// 
-//   InputTag bsSrc;
-// 
-//   std::string out;
-// 
-//   InputTag m_dEdx1Tag;
-//   InputTag m_dEdx2Tag;
-// 
-//   ESHandle<MagneticField> theMF;
-//   vector<const TrackAssociatorBase*> associator;
+  double photonPtMin_;
+  double photonEtaMin_;
+  double photonEtaMax_;
+  double photonLip_;
+  double photonTip_;
 
 };

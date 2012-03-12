@@ -8,6 +8,7 @@
 <use name="SimDataFormats/PileupSummaryInfo"/>
 <use name="SimDataFormats/TrackingAnalysis"/>
 <use name="DataFormats/RecoCandidate"/>
+<use name="DataFormats/ParticleFlowCandidate"/>
 <use name="SimTracker/Records"/>
 <use name="SimTracker/TrackAssociation"/>
 <library   file="*.cc" name="TrackValidatorPlugins">

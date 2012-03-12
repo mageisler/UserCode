@@ -16,7 +16,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id: TrackValidatorAlgos.h,v 1.2 2012/02/10 12:47:28 mgeisler Exp $
+// $Id: TrackValidatorAlgos.h,v 1.3 2012/02/13 15:47:14 mgeisler Exp $
 //
 //
 
@@ -42,6 +42,9 @@
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 #include "CommonTools/RecoAlgos/interface/TrackingParticleSelector.h"
 
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
+
 // ROOT include files
 #include <TH1F.h>
 
@@ -60,7 +63,11 @@ class TrackValidatorAlgos{
 
     void initialize(){setUpVectors();};
 
+    void initializePF(){setUpVectorsPF();};
+
     void BookHistos(TFileDirectory); 
+
+    void BookHistosPF(TFileDirectory); 
 
     void fill_independent_histos(int,int,int);
 
@@ -70,15 +77,15 @@ class TrackValidatorAlgos{
 
     void fill_simAssociated_recoTrack_histos(int,const Track&,bool,bool,int);
 
-    void fill_removedRecoTrack_histos(int,const Track&,vector<pair<TrackingParticleRef, double> >,bool,int);
+    void fill_removedRecoTrack_histos(int,const Track&,bool,bool,int);
+
+    void fill_photon_related_histos(int,Handle<TrackingParticleCollection>,auto_ptr<PFCandidateCollection>,int);
 
     void fillFractionHistosFromVectors(int);
+    void fillFractionHistosFromVectorsPF(int);
 
     void fillHistosFromVectors(int);
-
-    void fillPlotFromVector(TH1F*,vector<int>);
-
-    void fillFractionHisto(TH1F*,vector<int>,vector<int>,string);
+    void fillHistosFromVectorsPF(int);
 
     bool findRefTrack(const Track&,const Track&);
 
@@ -89,6 +96,13 @@ class TrackValidatorAlgos{
 
   // private methods for internal usage
   void setUpVectors();
+  void setUpVectorsPF();
+
+  void fillPlotFromVector(TH1F*,vector<int>);
+
+  void fillFractionHisto(TH1F*,vector<int>,vector<int>,string);
+
+  bool photonMatching(TrackingParticle*,PFCandidate);
 
 
   //private data members  
@@ -97,6 +111,7 @@ class TrackValidatorAlgos{
 
   TrackingParticleSelector* generalTpSignalSelector;
   TrackingParticleSelector* generalTpPUSelector;
+  TrackingParticleSelector* photonTpSelector;
 
   //parameters for the histograms
 
@@ -106,7 +121,11 @@ class TrackValidatorAlgos{
   double minTrackcount, maxTrackcount;  int nintTrackcount;
 
 
-  //histograms
+  // ###########
+  // histograms 
+  // ###########
+
+  // track collection
 
   vector<TH1F*> PU_effic_eta; vector<TH1F*> PU_effic_pt; vector<TH1F*> PU_effic_npu;
 
@@ -120,9 +139,11 @@ class TrackValidatorAlgos{
   vector<TH1F*> fakerate_eta; vector<TH1F*> fakerate_pt; 
   vector<TH1F*> fakerate_npu;
 
-  vector<TH1F*> num_simul_tracks; vector<TH1F*> num_track_simul_eta; 
+  vector<TH1F*> num_simul_tracks; vector<TH1F*> num_track_simul_eta;
+  vector<TH1F*> num_track_simul_pt; vector<TH1F*> num_track_simul_npu; 
   vector<TH1F*> num_simul_vertex; 
   vector<TH1F*> num_reco_tracks; vector<TH1F*> num_track_reco_eta;
+  vector<TH1F*> num_track_reco_pt; vector<TH1F*> num_track_reco_npu;
 
   vector<TH1F*> num_removed_reco_signal_eta; vector<TH1F*> num_removed_reco_eta;
   vector<TH1F*> num_removed_reco_PU_eta; vector<TH1F*> num_reco_PU_eta;
@@ -134,9 +155,28 @@ class TrackValidatorAlgos{
   vector<TH1F*> num_removed_reco_PU_npu;
 
   vector<TH1F*> num_assoc_eta; vector<TH1F*> num_assoc2_eta;
+  vector<TH1F*> num_assoc_pt; vector<TH1F*> num_assoc2_pt;
+  vector<TH1F*> num_assoc_npu; vector<TH1F*> num_assoc2_npu;
+
+  vector<TH1F*> num_track_reco_PU_eta; vector<TH1F*> num_track_reco_signal_eta;
+  vector<TH1F*> num_track_reco_PU_pt; vector<TH1F*> num_track_reco_signal_pt;
+  vector<TH1F*> num_track_reco_PU_npu; vector<TH1F*> num_track_reco_signal_npu;
 
 
-  //vectors
+  // particle flow collection
+
+  vector<TH1F*> num_photon_simul; vector<TH1F*> num_photon_simul_eta;
+  vector<TH1F*> num_photon_simul_pt; vector<TH1F*> num_photon_simul_npu;
+
+  vector<TH1F*> num_photon_reco; vector<TH1F*> num_photon_reco_eta;
+  vector<TH1F*> num_photon_reco_pt; vector<TH1F*> num_photon_reco_npu;
+
+
+  // ###########
+  // vectors 
+  // ###########
+
+  // track collection
 
   vector< vector<double> > etaintervals;
   vector< vector<double> > ptintervals;

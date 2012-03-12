@@ -23,6 +23,9 @@
 #include "SimTracker/TrackAssociation/interface/TrackAssociatorBase.h"
 #include "SimTracker/TrackAssociation/interface/TrackAssociatorByHits.h"
 
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
+
 using namespace std;
 using namespace edm;
 using namespace reco;
@@ -45,6 +48,8 @@ TrackValidator::TrackValidator(const edm::ParameterSet& iConfig):TrackValidatorA
   tcRefLabel_ = iConfig.getParameter<InputTag>("tcRefLabel");
   tcLabels_ = iConfig.getParameter<vector<InputTag> >("tcLabel");
 
+  pfLabels_ = iConfig.getParameter<vector<InputTag> >("pfLabel");
+
   tpLabel_ = iConfig.getParameter<InputTag>("TPLabel");
 
   puLabel_ = iConfig.getParameter<InputTag>("PULabel");
@@ -65,7 +70,27 @@ TrackValidator::TrackValidator(const edm::ParameterSet& iConfig):TrackValidatorA
 
   }
 
+  for(unsigned pfl=0; pfl<pfLabels_.size(); pfl++){
+
+    TrackValidatorAlgos::initializePF();
+
+    InputTag pfColl = pfLabels_[pfl];
+    string dirName = "";
+    dirName += pfColl.label();
+
+    subDir->push_back(tfs->mkdir(dirName));
+    TrackValidatorAlgos::BookHistosPF(subDir->at(pfl+tcLabels_.size()));
+
+  }
+
+
   ignoremissingtkcollection_ = iConfig.getParameter<bool>("ignoremissingtrackcollection");
+
+  photonPtMin_ = iConfig.getParameter<double>("photonPtMin");
+  photonEtaMin_ = iConfig.getParameter<double>("photonEtaMin");
+  photonEtaMax_ = iConfig.getParameter<double>("photonEtaMax");
+  photonLip_ = iConfig.getParameter<double>("photonLip");
+  photonTip_ = iConfig.getParameter<double>("photonTip");
 
 }
 
@@ -122,6 +147,10 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
 
   int npu = puinfo.getPU_NumInteractions();
+
+  // ########################################################
+  // part of the charged particle analysis
+  // ########################################################
 
   //loop over input collections
   for(unsigned tcl=0; tcl<tcLabels_.size(); tcl++){ 
@@ -217,9 +246,28 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           break;
         }
 
-      }     
+      } 
 
-      TrackValidatorAlgos::fill_removedRecoTrack_histos(tcl,*refTrack,refTp,removedTrack,npu);
+      bool isMatched = false;
+      bool isSigMatched = false;
+
+      if (refTp.size()!=0) {
+
+        isMatched = true;
+        for (unsigned int tp_ite=0;tp_ite<refTp.size();++tp_ite){ 
+
+          TrackingParticle trackpart = *(refTp[tp_ite].first);
+
+          if ((trackpart.eventId().event() == 0) && (trackpart.eventId().bunchCrossing() == 0)){
+            isSigMatched = true;
+            break;
+          }
+
+        }
+
+      }    
+
+      if(isMatched) TrackValidatorAlgos::fill_removedRecoTrack_histos(tcl,*refTrack,isSigMatched,removedTrack,npu);
 
     }
 
@@ -231,6 +279,35 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   }
 
+  // ########################################################
+  // part of the uncharged particle analysis
+  // ########################################################
+
+  //loop over input collections
+  for(unsigned pfl=0; pfl<pfLabels_.size(); pfl++){
+
+    //get particle flow collection from the event
+    Handle<PFCandidateCollection>  pfcCollectionH;
+    if(!iEvent.getByLabel(pfLabels_[pfl],pfcCollectionH)&&ignoremissingtkcollection_) continue;
+
+    auto_ptr<PFCandidateCollection> photons(new PFCandidateCollection() );
+   
+    for(unsigned pfc_ite=0;pfc_ite<pfcCollectionH->size();pfc_ite++) {
+     
+      PFCandidatePtr candptr(pfcCollectionH,pfc_ite);
+      if((candptr->particleId()==PFCandidate::gamma) &&
+         (candptr->pt()>=photonPtMin_) &&
+         (candptr->momentum().eta()>=photonEtaMin_) &&
+         (candptr->momentum().eta()<=photonEtaMax_) &&
+         (fabs(candptr->vertex().z())<=photonTip_) &&
+         (sqrt(candptr->vertex().perp2())<=photonLip_)) photons->push_back(*candptr);
+
+    }
+
+    TrackValidatorAlgos::fill_photon_related_histos(pfl,TPCollectionH,photons,npu);
+
+  }
+
 }
 
 // ------------ method called when ending the processing of a run  ------------
@@ -238,11 +315,19 @@ void
 TrackValidator::endRun(edm::Run const&, edm::EventSetup const&)
 {
 
-  //loop over input collections
+  //loop over input track collections
   for(unsigned tcl=0; tcl<tcLabels_.size(); tcl++){
 
     TrackValidatorAlgos::fillFractionHistosFromVectors(tcl);
     TrackValidatorAlgos::fillHistosFromVectors(tcl); 
+ 
+  }
+
+  //loop over input pf collections
+  for(unsigned pfl=0; pfl<pfLabels_.size(); pfl++){
+
+    TrackValidatorAlgos::fillFractionHistosFromVectorsPF(pfl);
+    TrackValidatorAlgos::fillHistosFromVectorsPF(pfl); 
  
   }
 
