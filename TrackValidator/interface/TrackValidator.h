@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id$
+// $Id: TrackValidator.h,v 1.2 2012/03/12 11:20:38 mgeisler Exp $
 //
 //
 
@@ -33,6 +33,8 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "FWCore/Utilities/interface/InputTag.h"
+
+#include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
 
 using namespace std;
 using namespace edm;
@@ -62,10 +64,13 @@ class TrackValidator : public EDAnalyzer, private TrackValidatorAlgos {
   InputTag tcRefLabel_;
   vector<InputTag> tcLabels_;
 
+  InputTag pfRefLabel_;
   vector<InputTag> pfLabels_;
 
   InputTag puLabel_;
   InputTag tpLabel_;
+
+  PhotonMCTruthFinder*  thePhotonMCTruthFinder_;
 
   bool ignoremissingtkcollection_;
 
