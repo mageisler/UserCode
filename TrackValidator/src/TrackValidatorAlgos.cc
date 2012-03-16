@@ -25,6 +25,10 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 
+#include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
+#include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruth.h"
+#include "RecoEgamma/EgammaMCTools/interface/ElectronMCTruth.h"
+
 // ROOT include files
 #include <TH1F.h>
 #include "TMath.h"
@@ -69,18 +73,6 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
 
   generalTpPUSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(generalTpPUSelectorPSet));
 
-  ParameterSet photonTpSelectorPSet = generalTpSignalSelectorPSet;
-  Entry cOname("chargedOnly",false,true);
-  photonTpSelectorPSet.insert(true,"chargedOnly",cOname);
-  vector<int> phoPdgId;
-  phoPdgId.push_back(22);
-  Entry phoIdname("pdgId",phoPdgId,true);
-  photonTpSelectorPSet.insert(true,"pdgId",phoIdname);
-  Entry minHitname("minHit",0,true);
-  photonTpSelectorPSet.insert(true,"minHit",minHitname);
-
-  photonTpSelector = new TrackingParticleSelector(ParameterAdapter<TrackingParticleSelector>::make(photonTpSelectorPSet));
-
   // fix for the LogScale by Ryan
   useLogpt_ = iConfig.getParameter<bool>("UseLogPt");
 
@@ -92,30 +84,79 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
       minpt=log10(0.1);
     }
   }
+  
+  //parameters for photon selection
+
+  etaPhiDistance=0.01;
+  BARL = 1.4442; 
+  END_LO = 1.566;
+  END_HI = 2.5;
+
+  MCphotonPtMin_ = iConfig.getParameter<double>("photonPtMin");
+  MCphotonLip_ = iConfig.getParameter<double>("photonLip");
+  MCphotonTip_ = iConfig.getParameter<double>("photonTip");
 
 }
 
+
+void 
+TrackValidatorAlgos::CreateIntervalVectors()
+{
+
+  // eta vectors
+
+  double eta_step=(maxEta-minEta)/nintEta;
+  etaintervals.push_back(minEta);
+
+  for (int k=1;k<nintEta+1;k++) {
+
+    double d=minEta+k*eta_step;
+    etaintervals.push_back(d);
+
+  }
+
+  // pt vectors
+
+  double pt_step=(maxpt-minpt)/nintpt;
+  ptintervals.push_back(minpt);
+
+  for (int k=1;k<nintpt+1;k++) {
+
+    double d;
+    if(useLogpt_){
+      d=pow(10,minpt+k*pt_step);
+    }else{
+      d=minpt+k*pt_step;
+    }
+    ptintervals.push_back(d);
+
+  }
+
+  // npu vectors
+
+  double stepVertcount=(maxVertcount-minVertcount)/nintVertcount;
+  vertcountintervals.push_back(minVertcount);
+
+  for (int k=1;k<nintVertcount+1;k++) {
+
+    double d=minVertcount+k*stepVertcount;
+    vertcountintervals.push_back(d);
+
+  }   
+
+}
 
 void 
 TrackValidatorAlgos::setUpVectors()
 {
 
   // eta vectors
-  vector<double> etaintervalsv;
   vector<int> etaintervalsh;
 
-  double eta_step=(maxEta-minEta)/nintEta;
-  etaintervalsv.push_back(minEta);
-
   for (int k=1;k<nintEta+1;k++) {
-
-    double d=minEta+k*eta_step;
-    etaintervalsv.push_back(d);
     etaintervalsh.push_back(0);
-
   }
 
-  etaintervals.push_back(etaintervalsv);
   allSignalTP_eta.push_back(etaintervalsh);
   allRT_eta.push_back(etaintervalsh);
   assSignalTP_eta.push_back(etaintervalsh);
@@ -128,26 +169,12 @@ TrackValidatorAlgos::setUpVectors()
   removedPURT_eta.push_back(etaintervalsh);
 
   // pt vectors
-  vector<double> ptintervalsv;
   vector<int> ptintervalsh;
 
-  double pt_step=(maxpt-minpt)/nintpt;
-  ptintervalsv.push_back(minpt);
-
   for (int k=1;k<nintpt+1;k++) {
-
-    double d;
-    if(useLogpt_){
-      d=pow(10,minpt+k*pt_step);
-    }else{
-      d=minpt+k*pt_step;
-    }
-    ptintervalsv.push_back(d);
     ptintervalsh.push_back(0);
-
   }
 
-  ptintervals.push_back(ptintervalsv);
   allSignalTP_pt.push_back(ptintervalsh);
   allRT_pt.push_back(ptintervalsh);
   assSignalTP_pt.push_back(ptintervalsh);
@@ -159,21 +186,12 @@ TrackValidatorAlgos::setUpVectors()
   removedPURT_pt.push_back(ptintervalsh);
 
   // npu vectors
-  vector<double> vertcountintervalsv;
   vector<int> vertcountintervalsh;
 
-  double stepVertcount=(maxVertcount-minVertcount)/nintVertcount;
-  vertcountintervalsv.push_back(minVertcount);
-
   for (int k=1;k<nintVertcount+1;k++) {
-
-    double d=minVertcount+k*stepVertcount;
-    vertcountintervalsv.push_back(d);
     vertcountintervalsh.push_back(0);
-
   }   
 
-  vertcountintervals.push_back(vertcountintervalsv);
   allSignalTP_npu.push_back(vertcountintervalsh);
   allRT_npu.push_back(vertcountintervalsh);
   assSignalTP_npu.push_back(vertcountintervalsh);
@@ -201,24 +219,51 @@ TrackValidatorAlgos::setUpVectorsPF()
 
   for (int k=1;k<nintEta+1;k++) {
     etaintervalsh.push_back(0);
-
   }
+
+  allSignalPhoton_eta.push_back(etaintervalsh);
+  allRecoPhoton_eta.push_back(etaintervalsh);
+  assSignalPhoton_eta.push_back(etaintervalsh);
+  signalRecoPhoton_eta.push_back(etaintervalsh);
+  allRemovedRecoPhoton_eta.push_back(etaintervalsh);
+  removedPURecoPhoton_eta.push_back(etaintervalsh);
+  removedSignalRecoPhoton_eta.push_back(etaintervalsh);
+  allSignalRecoPhoton_eta.push_back(etaintervalsh);
+  allPURecoPhoton_eta.push_back(etaintervalsh);
 
   // pt vectors
   vector<int> ptintervalsh;
 
   for (int k=1;k<nintpt+1;k++) {
     ptintervalsh.push_back(0);
-
   }
+
+  allSignalPhoton_pt.push_back(ptintervalsh);
+  allRecoPhoton_pt.push_back(ptintervalsh);
+  assSignalPhoton_pt.push_back(ptintervalsh);
+  signalRecoPhoton_pt.push_back(ptintervalsh);
+  allRemovedRecoPhoton_pt.push_back(etaintervalsh);
+  removedSignalRecoPhoton_pt.push_back(etaintervalsh);
+  removedPURecoPhoton_pt.push_back(etaintervalsh);
+  allSignalRecoPhoton_pt.push_back(etaintervalsh);
+  allPURecoPhoton_pt.push_back(etaintervalsh);
 
   // npu vectors
   vector<int> vertcountintervalsh;
 
   for (int k=1;k<nintVertcount+1;k++) {
     vertcountintervalsh.push_back(0);
-
   }   
+
+  allSignalPhoton_npu.push_back(vertcountintervalsh);
+  allRecoPhoton_npu.push_back(vertcountintervalsh);
+  assSignalPhoton_npu.push_back(vertcountintervalsh);
+  signalRecoPhoton_npu.push_back(vertcountintervalsh);
+  allRemovedRecoPhoton_npu.push_back(etaintervalsh);
+  removedSignalRecoPhoton_npu.push_back(etaintervalsh);
+  removedPURecoPhoton_npu.push_back(etaintervalsh);
+  allSignalRecoPhoton_npu.push_back(etaintervalsh);
+  allPURecoPhoton_npu.push_back(etaintervalsh);
 
 }
 
@@ -308,17 +353,77 @@ void
 TrackValidatorAlgos::BookHistosPF(TFileDirectory subDir) 
 {
 
+  //Book PileUp related histograms
+
+  photon_PU_effic_eta.push_back(subDir.make<TH1F>("photon_PU_effic_eta", "Photon PU_effic vs eta", nintEta, minEta, maxEta));
+  photon_PU_effic_pt.push_back(subDir.make<TH1F>("photon_PU_effic_pt", "Photon PU_effic vs pt", nintpt, minpt, maxpt));
+  photon_PU_effic_npu.push_back(subDir.make<TH1F>("photon_PU_effic_npu", "Photon PU_effic vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  num_removedPURecoPhoton_eta.push_back(subDir.make<TH1F>("num_removedPURecoPhoton_eta", "Number of removed reconstructed pileup photons vs eta", nintEta, minEta, maxEta));
+  num_removedPURecoPhoton_pt.push_back(subDir.make<TH1F>("num_removedPURecoPhoton_pt", "Number of removed reconstructed pileup photons vs pt", nintpt, minpt, maxpt));
+  num_removedPURecoPhoton_npu.push_back(subDir.make<TH1F>("num_removedPURecoPhoton_npu", "Number of removed reconstructed pileup photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  num_allPURecoPhoton_eta.push_back(subDir.make<TH1F>("num_allPURecoPhoton_eta", "Number of reconstructed pileup photons vs eta", nintEta, minEta, maxEta));
+  num_allPURecoPhoton_pt.push_back(subDir.make<TH1F>("num_allPURecoPhoton_pt", "Number of reconstructed pileup photons vs pt", nintpt, minpt, maxpt));
+  num_allPURecoPhoton_npu.push_back(subDir.make<TH1F>("num_allPURecoPhoton_npu", "Number of reconstructed pileup photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+
+  photon_PU_fakerate_1_eta.push_back(subDir.make<TH1F>("photon_PU_fakerate_1_eta", "Photon PU_fakerate 1 vs eta", nintEta, minEta, maxEta));
+  photon_PU_fakerate_1_pt.push_back(subDir.make<TH1F>("photon_PU_fakerate_1_pt", "Photon PU_fakerate 1 vs pt", nintpt, minpt, maxpt));
+  photon_PU_fakerate_1_npu.push_back(subDir.make<TH1F>("photon_PU_fakerate_1_npu", "Photon PU_fakerate 1 vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  photon_PU_fakerate_2_eta.push_back(subDir.make<TH1F>("photon_PU_fakerate_2_eta", "Photon PU_fakerate 2 vs eta", nintEta, minEta, maxEta));
+  photon_PU_fakerate_2_pt.push_back(subDir.make<TH1F>("photon_PU_fakerate_2_pt", "Photon PU_fakerate 2 vs pt", nintpt, minpt, maxpt));
+  photon_PU_fakerate_2_npu.push_back(subDir.make<TH1F>("photon_PU_fakerate_2_npu", "Photon PU_fakerate 2 vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  num_removedSignalRecoPhoton_eta.push_back(subDir.make<TH1F>("num_removedSignalRecoPhoton_eta", "Number of removed reconstructed signal photons vs eta", nintEta, minEta, maxEta));
+  num_removedSignalRecoPhoton_pt.push_back(subDir.make<TH1F>("num_removedSignalRecoPhoton_pt", "Number of removed reconstructed signal photons vs pt", nintpt, minpt, maxpt));
+  num_removedSignalRecoPhoton_npu.push_back(subDir.make<TH1F>("num_removedSignalRecoPhoton_npu", "Number of removed reconstructed signal photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  num_allRemovedRecoPhoton_eta.push_back(subDir.make<TH1F>("num_allRemovedRecoPhoton_eta", "Number of removed reconstructed photons vs eta", nintEta, minEta, maxEta));
+  num_allRemovedRecoPhoton_pt.push_back(subDir.make<TH1F>("num_allRemovedRecoPhoton_pt", "Number of removed reconstructed pileup vs pt", nintpt, minpt, maxpt));
+  num_allRemovedRecoPhoton_npu.push_back(subDir.make<TH1F>("num_allRemovedRecoPhoton_npu", "Number of removed reconstructed photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  num_allSignalRecoPhoton_eta.push_back(subDir.make<TH1F>("num_allSignalRecoPhoton_eta", "Number of reconstructed signal photons vs eta", nintEta, minEta, maxEta));
+  num_allSignalRecoPhoton_pt.push_back(subDir.make<TH1F>("num_allSignalRecoPhoton_pt", "Number of reconstructed signal photons vs pt", nintpt, minpt, maxpt));
+  num_allSignalRecoPhoton_npu.push_back(subDir.make<TH1F>("num_allSignalRecoPhoton_npu", "Number of reconstructed signal photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  //Book simulation related histograms
+
   num_photon_simul.push_back(subDir.make<TH1F>("num_photon_simul", "Number of simulated photons", nintTrackcount, minTrackcount, maxTrackcount));
   num_photon_simul_eta.push_back(subDir.make<TH1F>("num_photon_simul_eta", "Number of simulated photons vs eta", nintEta, minEta, maxEta));
 
   num_photon_simul_pt.push_back(subDir.make<TH1F>("num_photon_simul_pt", "Number of simulated photons vs pt", nintpt, minpt, maxpt));
   num_photon_simul_npu.push_back(subDir.make<TH1F>("num_photon_simul_npu", "Number of simulated photons vs npu", nintVertcount, minVertcount, maxVertcount));
 
+  //Book reconstruction related histograms
+
   num_photon_reco.push_back(subDir.make<TH1F>("num_photon_reco", "Number of reconstructed photons", nintTrackcount, minTrackcount, maxTrackcount));
   num_photon_reco_eta.push_back(subDir.make<TH1F>("num_photon_reco_eta", "Number of reconstructed photons vs eta", nintEta, minEta, maxEta));
 
   num_photon_reco_pt.push_back(subDir.make<TH1F>("num_photon_reco_pt", "Number of reconstructed photons vs pt", nintpt, minpt, maxpt));
   num_photon_reco_npu.push_back(subDir.make<TH1F>("num_photon_reco_npu", "Number of reconstructed photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  //Book association related histograms
+
+  num_assoc_photon_eta.push_back(subDir.make<TH1F>("num_assoc(simToReco)_photon_eta", "Number of associated simulated photons vs eta", nintEta, minEta, maxEta));
+  num_assoc2_photon_eta.push_back(subDir.make<TH1F>("num_assoc(recoToSim)_photon_eta", "Number of associated reconstructed photons vs eta", nintEta, minEta, maxEta));
+
+  num_assoc_photon_pt.push_back(subDir.make<TH1F>("num_assoc(simToReco)_photon_pt", "Number of associated simulated photons vs pt", nintpt, minpt, maxpt));
+  num_assoc2_photon_pt.push_back(subDir.make<TH1F>("num_assoc(recoToSim)_photon_pt", "Number of associated reconstructed photons vs pt", nintpt, minpt, maxpt));
+
+  num_assoc_photon_npu.push_back(subDir.make<TH1F>("num_assoc(simToReco)_photon_npu", "Number of associated simulated photons vs npu", nintVertcount, minVertcount, maxVertcount));
+  num_assoc2_photon_npu.push_back(subDir.make<TH1F>("num_assoc(recoToSim)_photon_npu", "Number of associated reconstructed photons vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  //Book efficiency and fakerate histograms
+
+  photon_effic_eta.push_back(subDir.make<TH1F>("photon_effic_eta", "photon effic vs eta", nintEta, minEta, maxEta));
+  photon_effic_pt.push_back(subDir.make<TH1F>("photon_effic_pt", "photon effic vs pt", nintpt, minpt, maxpt));
+  photon_effic_npu.push_back(subDir.make<TH1F>("photon_effic_npu", "photon effic vs npu", nintVertcount, minVertcount, maxVertcount));
+
+  photon_fakerate_eta.push_back(subDir.make<TH1F>("photon_fakerate_eta", "photon fakerate vs eta", nintEta, minEta, maxEta));
+  photon_fakerate_pt.push_back(subDir.make<TH1F>("photon_fakerate_pt", "photon fakerate vs pt", nintpt, minpt, maxpt));
+  photon_fakerate_npu.push_back(subDir.make<TH1F>("photon_fakerate_npu", "photon fakerate vs npu", nintVertcount, minVertcount, maxVertcount));
 
 }
 
@@ -344,24 +449,74 @@ TrackValidatorAlgos::fill_generic_simTrack_histos(int counter, TrackingParticle*
 }
 
 void 
-TrackValidatorAlgos::fill_photon_related_histos(int counter, Handle<TrackingParticleCollection>  TPCollectionH, auto_ptr<PFCandidateCollection> photons, int npu)
+TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTruth>  mcPhotons, auto_ptr<PFCandidateCollection> photons, auto_ptr<PFCandidateCollection> RefPhotons, SimVertex MainInt, int npu)
 {
 
   //fill simulation related histos
 
   unsigned num_photons_simul = 0;
 
-  for(TrackingParticleCollection::size_type tp_ite=0; tp_ite<TPCollectionH->size(); tp_ite++){
+  for(vector<PhotonMCTruth>::const_iterator mcPho=mcPhotons.begin(); mcPho !=mcPhotons.end(); mcPho++){
 
-    TrackingParticleRef tpr(TPCollectionH, tp_ite);
-    TrackingParticle* tp=const_cast<TrackingParticle*>(tpr.get());
+    float mcPhi= (*mcPho).fourMomentum().phi();
+    float mcEta= (*mcPho).fourMomentum().pseudoRapidity();
+    mcEta = etaTransformation(mcEta, (*mcPho).primaryVertex().z() );
+    float PX = (*mcPho).fourMomentum().px();
+    float PY = (*mcPho).fourMomentum().py();
+    float PT = sqrt(PX*PX + PY*PY);
 
-    if((*photonTpSelector)(*tp)){
+    if((photonSelector(*mcPho,MainInt)) && (fabs(mcEta) <= BARL || (fabs(mcEta) >= END_LO && fabs(mcEta) <=END_HI))){
+
+      bool isMatched = false;
 
       num_photons_simul++;
-      num_photon_simul_eta.at(counter)->Fill(tp->momentum().eta());
-      num_photon_simul_pt.at(counter)->Fill(tp->pt());
-      num_photon_simul_npu.at(counter)->Fill(npu);
+
+      // Loop over recontructed photons
+      for(PFCandidateConstIterator iPho = photons->begin(); iPho != photons->end(); iPho++){
+
+        if(photonMatching(mcPhi,mcEta,*iPho)){
+
+          isMatched = true;
+          break;
+
+        }
+
+      }
+
+      //effic vs eta
+      for(unsigned int f=0; f<etaintervals.size()-1; f++){
+        if(mcEta>etaintervals[f]&&
+	   mcEta<etaintervals[f+1]){
+	  allSignalPhoton_eta[counter][f]++;
+	  if(isMatched){
+	    assSignalPhoton_eta[counter][f]++;
+	  }
+          break;
+        }
+      } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
+
+      //effic vs pt
+      for(unsigned int f=0; f<ptintervals.size()-1; f++){
+        if(PT>ptintervals[f]&&
+	   PT<ptintervals[f+1]){
+          allSignalPhoton_pt[counter][f]++; 
+          if(isMatched){
+	    assSignalPhoton_pt[counter][f]++;
+          }	
+          break;      
+        }
+      } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
+
+      //effic vs num pileup vertices
+      for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
+        if(npu == vertcountintervals[f]){
+          allSignalPhoton_npu[counter][f]++;
+          if(isMatched){
+            assSignalPhoton_npu[counter][f]++;
+          }
+          break;
+        }    
+      }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
 
     }
 
@@ -371,13 +526,157 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, Handle<TrackingPart
 
   //fill reconstruction related histos
 
-  for(unsigned photo_ite=0;photo_ite<photons->size();photo_ite++){
+  for(PFCandidateConstIterator iPho = photons->begin(); iPho != photons->end(); iPho++){
 
-    PFCandidate photon = photons->at(photo_ite);
+    bool isSigMatched = false;
 
-    num_photon_reco_eta.at(counter)->Fill(photon.momentum().eta());
-    num_photon_reco_pt.at(counter)->Fill(photon.pt());
-    num_photon_reco_npu.at(counter)->Fill(npu);
+    for(vector<PhotonMCTruth>::const_iterator mcPho=mcPhotons.begin(); mcPho !=mcPhotons.end(); mcPho++){
+
+      float mcPhi= (*mcPho).fourMomentum().phi();
+      float mcEta= (*mcPho).fourMomentum().pseudoRapidity();
+      mcEta = etaTransformation(mcEta, (*mcPho).primaryVertex().z() );
+
+      if(photonMatching(mcPhi,mcEta,*iPho)){
+
+        if((mcPho->primaryVertex().x()==MainInt.position().x()) &&
+           (mcPho->primaryVertex().y()==MainInt.position().y()) &&
+           (mcPho->primaryVertex().z()==MainInt.position().z())) isSigMatched=true;
+        break;
+
+      }
+
+    }
+
+    //fake rate vs eta
+    for (unsigned int f=0; f<etaintervals.size()-1; f++){
+      if (iPho->eta()>etaintervals[f]&&
+          iPho->eta()<etaintervals[f+1]) {
+        allRecoPhoton_eta[counter][f]++;
+        if(isSigMatched){
+  	  signalRecoPhoton_eta[counter][f]++;
+        }
+        break;
+      }
+    } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
+
+    //fake rate vs pt
+    for (unsigned int f=0; f<ptintervals.size()-1; f++){
+      if (sqrt(iPho->momentum().perp2())>ptintervals[f]&&
+          sqrt(iPho->momentum().perp2())<ptintervals[f+1]) {
+        allRecoPhoton_pt[counter][f]++; 
+        if(isSigMatched){
+  	  signalRecoPhoton_pt[counter][f]++;
+        }	  
+        break;    
+      }
+    } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
+ 
+    //fake rate vs num pileup vertices
+    for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+      if (npu == vertcountintervals[f]) {
+        allRecoPhoton_npu[counter][f]++;
+        if(isSigMatched){
+          signalRecoPhoton_npu[counter][f]++;
+        }
+        break;
+      }    
+    }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+
+  }
+
+  for(PFCandidateConstIterator refPho = RefPhotons->begin(); refPho != RefPhotons->end(); refPho++){
+
+    bool isMatched = false;
+    bool isSigMatched = false;
+    bool isRemoved = true;
+
+    for(vector<PhotonMCTruth>::const_iterator mcPho=mcPhotons.begin(); mcPho !=mcPhotons.end(); mcPho++){
+
+      float mcPhi= (*mcPho).fourMomentum().phi();
+      float mcEta= (*mcPho).fourMomentum().pseudoRapidity();
+      mcEta = etaTransformation(mcEta, (*mcPho).primaryVertex().z() );
+
+      if(photonMatching(mcPhi,mcEta,*refPho)){
+
+        isMatched = true;
+        if((mcPho->primaryVertex().x()==MainInt.position().x()) &&
+           (mcPho->primaryVertex().y()==MainInt.position().y()) &&
+           (mcPho->primaryVertex().z()==MainInt.position().z())) isSigMatched=true;
+        break;
+
+      }
+
+    }
+
+    for(PFCandidateConstIterator iPho = photons->begin(); iPho != photons->end(); iPho++){
+
+      if(photonMatching(refPho->eta(),refPho->eta(),*iPho)){
+
+        isRemoved=false;
+        break;
+
+      }
+
+    }
+
+    // vs eta
+    for (unsigned int f=0; f<etaintervals.size()-1; f++){
+      if (refPho->eta()>etaintervals[f]&&
+          refPho->eta()<etaintervals[f+1]) {
+        if(isSigMatched){
+          allSignalRecoPhoton_eta[counter][f]++; 
+         }else{
+          allPURecoPhoton_eta[counter][f]++; 
+        }    
+        if(isRemoved){
+          allRemovedRecoPhoton_eta[counter][f]++;
+          if(isSigMatched){
+            removedSignalRecoPhoton_eta[counter][f]++; 
+          }else{
+            removedPURecoPhoton_eta[counter][f]++; 
+          }
+        } // END if(isRemoved){
+      } // END if(refPho->eta()>etaintervals[f]&&refPho->eta()<etaintervals[f+1]){
+    } // END for(unsigned int f=0; f<etaintervals.size()-1; f++){
+
+    // vs pt
+    for (unsigned int f=0; f<ptintervals.size()-1; f++){
+      if (sqrt(refPho->momentum().perp2())>ptintervals[f]&&
+          sqrt(refPho->momentum().perp2())<ptintervals[f+1]){
+        if(isSigMatched){
+          allSignalRecoPhoton_pt[counter][f]++; 
+         }else{
+          allPURecoPhoton_pt[counter][f]++; 
+        }    
+        if(isRemoved){
+          allRemovedRecoPhoton_pt[counter][f]++;
+          if(isSigMatched){
+            removedSignalRecoPhoton_pt[counter][f]++; 
+          }else{
+            removedPURecoPhoton_pt[counter][f]++; 
+          }
+        } // END if(isRemoved){
+      } // END if(sqrt(refPho->momentum().perp2())>ptintervals[f]&&sqrt(refPho->momentum().perp2())<ptintervals[f+1]]){
+    } // END for(unsigned int f=0; f<ptintervals.size()-1; f++){
+
+    // vs npu
+    for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+      if (npu == vertcountintervals[f]) {
+        if(isSigMatched){
+          allSignalRecoPhoton_npu[counter][f]++; 
+         }else{
+          allPURecoPhoton_npu[counter][f]++; 
+        }    
+        if(isRemoved){
+          allRemovedRecoPhoton_npu[counter][f]++;
+          if(isSigMatched){
+            removedSignalRecoPhoton_npu[counter][f]++; 
+          }else{
+            removedPURecoPhoton_npu[counter][f]++; 
+          }
+        } // END if(isRemoved){
+      } // END if(npu == vertcountintervals[counter][f]){
+    } // END for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
 
   }
 
@@ -386,14 +685,81 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, Handle<TrackingPart
 }
 
 bool 
-TrackValidatorAlgos::photonMatching(TrackingParticle* simul_photon, PFCandidate reco_photon)
+TrackValidatorAlgos::photonSelector(PhotonMCTruth pho, SimVertex MainInt)
 {
 
-  cout << simul_photon->pSimHit_end()-simul_photon->pSimHit_begin() << endl;
-  cout << reco_photon.positionAtECALEntrance() << endl;
-  cout << "\n" << endl;
+  float PX = pho.fourMomentum().px();
+  float PY = pho.fourMomentum().py();
+  float PT = sqrt(PX*PX + PY*PY);
 
-  return (deltaR(simul_photon->momentum(),reco_photon)<=0.01);
+  return ((PT>=MCphotonPtMin_) &&
+         (fabs(pho.vertex().z())<=MCphotonTip_) &&
+         (sqrt(pho.vertex().perp2())<=MCphotonLip_) &&
+         (pho.primaryVertex().x()==MainInt.position().x()) &&
+         (pho.primaryVertex().y()==MainInt.position().y()) &&
+         (pho.primaryVertex().z()==MainInt.position().z()));
+
+}
+
+bool 
+TrackValidatorAlgos::photonMatching(float mcPhi, float mcEta, PFCandidate reco_photon)
+{
+ 
+  float phiClu=reco_photon.phi();
+  float etaClu=reco_photon.eta();
+  float deltaPhi = phiClu-mcPhi;
+  float deltaEta = etaClu-mcEta;
+
+  if(deltaPhi > Geom::pi()) deltaPhi -= Geom::twoPi();
+  if(deltaPhi < -Geom::pi()) deltaPhi += Geom::twoPi();
+
+  deltaPhi=pow(deltaPhi,2);
+  deltaEta=pow(deltaEta,2);
+  float delta =  deltaPhi+deltaEta ;
+
+  if(delta < etaPhiDistance)  return true;
+
+  return false;
+
+}
+
+
+float 
+TrackValidatorAlgos::etaTransformation(  float EtaParticle , float Zvertex)
+{
+
+  //Definitions
+  const float PI    = 3.1415927;
+
+  //Definitions for ECAL
+  const float R_ECAL           = 136.5;
+  const float Z_Endcap         = 328.0;
+  const float etaBarrelEndcap  = 1.479;
+
+  //ETA correction
+
+  float Theta = 0.0  ;
+  float ZEcal = R_ECAL*sinh(EtaParticle)+Zvertex;
+
+  if(ZEcal != 0.0) Theta = atan(R_ECAL/ZEcal);
+  if(Theta<0.0) Theta = Theta+PI ;
+  float ETA = - log(tan(0.5*Theta));
+
+  if( fabs(ETA) > etaBarrelEndcap ){
+    
+    float Zend = Z_Endcap ;
+    if(EtaParticle<0.0 )  Zend = -Zend ;
+
+    float Zlen = Zend - Zvertex ;
+    float RR = Zlen/sinh(EtaParticle);
+
+    Theta = atan(RR/Zend);
+    if(Theta<0.0) Theta = Theta+PI ;
+    ETA = - log(tan(0.5*Theta));
+
+  }
+
+  return ETA;
 
 }
 
@@ -409,39 +775,39 @@ TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingPa
     sim_tracks[counter]++;
 
     //effic vs eta
-    for(unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-      if(tp_eta>etaintervals[counter][f]&&
-	 tp_eta<etaintervals[counter][f+1]){
+    for(unsigned int f=0; f<etaintervals.size()-1; f++){
+      if(tp_eta>etaintervals[f]&&
+	 tp_eta<etaintervals[f+1]){
 	allSignalTP_eta[counter][f]++;
 	if(isMatched){
 	  assSignalTP_eta[counter][f]++;
 	}
         break;
       }
-    } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
+    } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
 
     //effic vs pt
-    for(unsigned int f=0; f<ptintervals[counter].size()-1; f++){
-      if(sqrt(tp->momentum().perp2())>ptintervals[counter][f]&&
-	 sqrt(tp->momentum().perp2())<ptintervals[counter][f+1]){
+    for(unsigned int f=0; f<ptintervals.size()-1; f++){
+      if(sqrt(tp->momentum().perp2())>ptintervals[f]&&
+	 sqrt(tp->momentum().perp2())<ptintervals[f+1]){
         allSignalTP_pt[counter][f]++; 
         if(isMatched){
 	  assSignalTP_pt[counter][f]++;
         }	
         break;      
       }
-    } // End for (unsigned int f=0; f<ptintervals[count].size()-1; f++){
+    } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
 
     //effic vs num pileup vertices
-    for(unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-      if(npu == vertcountintervals[counter][f]){
+    for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
+      if(npu == vertcountintervals[f]){
         allSignalTP_npu[counter][f]++;
         if(isMatched){
           assSignalTP_npu[counter][f]++;
         }
         break;
       }    
-    }// End for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
+    }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
 
   }
 
@@ -453,9 +819,9 @@ TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track
 {
 
   //fake rate vs eta
-  for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-    if (track.eta()>etaintervals[counter][f]&&
-        track.eta()<etaintervals[counter][f+1]) {
+  for (unsigned int f=0; f<etaintervals.size()-1; f++){
+    if (track.eta()>etaintervals[f]&&
+        track.eta()<etaintervals[f+1]) {
       allRT_eta[counter][f]++;
       if (isSigMatched){
 	assSignalRT_eta[counter][f]++;
@@ -464,30 +830,30 @@ TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter,const Track
       }
       break;
     }
-  } // END for (unsigned int f=0; f<etaintervals[w].size()-1; f++){
+  } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
 
   //fake rate vs pt
-  for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
-    if (sqrt(track.momentum().perp2())>ptintervals[counter][f]&&
-        sqrt(track.momentum().perp2())<ptintervals[counter][f+1]) {
+  for (unsigned int f=0; f<ptintervals.size()-1; f++){
+    if (sqrt(track.momentum().perp2())>ptintervals[f]&&
+        sqrt(track.momentum().perp2())<ptintervals[f+1]) {
       allRT_pt[counter][f]++; 
       if (isSigMatched){
 	assSignalRT_pt[counter][f]++;
       }	  
       break;    
     }
-  } // End for (unsigned int f=0; f<ptintervals[count].size()-1; f++){
+  } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
 
   //fake rate vs num pileup vertices
-  for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-    if (npu == vertcountintervals[counter][f]) {
+  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+    if (npu == vertcountintervals[f]) {
       allRT_npu[counter][f]++;
       if (isSigMatched){
         assSignalRT_npu[counter][f]++;
       }
       break;
     }    
-  }// End for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
+  }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
 
 
 }
@@ -497,9 +863,9 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
 {
 
   // vs eta
-  for (unsigned int f=0; f<etaintervals[counter].size()-1; f++){
-    if (refTrack.eta()>etaintervals[counter][f]&&
-        refTrack.eta()<etaintervals[counter][f+1]) {
+  for (unsigned int f=0; f<etaintervals.size()-1; f++){
+    if (refTrack.eta()>etaintervals[f]&&
+        refTrack.eta()<etaintervals[f+1]) {
       if(isSigMatched){
         allSigRT_eta[counter][f]++; 
        }else{
@@ -514,12 +880,12 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
         }
       } // END if(isRemoved){
     } // END if(refTrack.eta()>etaintervals[counter][f]&&refTrack.eta()<etaintervals[counter][f+1){
-  } // END for(unsigned int f=0; f<etaintervals[w].size()-1; f++){
+  } // END for(unsigned int f=0; f<etaintervals.size()-1; f++){
 
   // vs pt
-  for (unsigned int f=0; f<ptintervals[counter].size()-1; f++){
-    if (sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&
-        sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]) {
+  for (unsigned int f=0; f<ptintervals.size()-1; f++){
+    if (sqrt(refTrack.momentum().perp2())>ptintervals[f]&&
+        sqrt(refTrack.momentum().perp2())<ptintervals[f+1]){
       if(isSigMatched){
         allSigRT_pt[counter][f]++; 
       }else{
@@ -534,11 +900,11 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
         }
       } // END if(isRemoved){
     } // END if(sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]){
-  } // END for(unsigned int f=0; f<ptintervals[counter].size()-1; f++){
+  } // END for(unsigned int f=0; f<ptintervals.size()-1; f++){
 
   // vs npu
-  for (unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
-    if (npu == vertcountintervals[counter][f]) {
+  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+    if (npu == vertcountintervals[f]) {
       if(isSigMatched){
         allSigRT_npu[counter][f]++; 
       }else{
@@ -553,7 +919,7 @@ TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter,const Track& refTr
         }
       } // END if(isRemoved){
     } // END if(npu == vertcountintervals[counter][f]){
-  } // END for(unsigned int f=0; f<vertcountintervals[counter].size()-1; f++){
+  } // END for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
    
 }
 
@@ -586,6 +952,27 @@ TrackValidatorAlgos::fillFractionHistosFromVectors(int counter)
 void
 TrackValidatorAlgos::fillFractionHistosFromVectorsPF(int counter)
 {
+
+  fillFractionHisto(photon_effic_eta[counter],assSignalPhoton_eta[counter],allSignalPhoton_eta[counter],"effic");
+  fillFractionHisto(photon_effic_pt[counter],assSignalPhoton_pt[counter],allSignalPhoton_pt[counter],"effic");
+  fillFractionHisto(photon_effic_npu[counter],assSignalPhoton_npu[counter],allSignalPhoton_npu[counter],"effic");
+
+  fillFractionHisto(photon_fakerate_eta[counter],signalRecoPhoton_eta[counter],allRecoPhoton_eta[counter],"fakerate");
+  fillFractionHisto(photon_fakerate_pt[counter],signalRecoPhoton_pt[counter],allRecoPhoton_pt[counter],"fakerate");
+  fillFractionHisto(photon_fakerate_npu[counter],signalRecoPhoton_npu[counter],allRecoPhoton_npu[counter],"fakerate");
+
+  fillFractionHisto(photon_PU_effic_eta[counter],removedPURecoPhoton_eta[counter],allPURecoPhoton_eta[counter],"effic");
+  fillFractionHisto(photon_PU_effic_pt[counter],removedPURecoPhoton_pt[counter],allPURecoPhoton_pt[counter],"effic");
+  fillFractionHisto(photon_PU_effic_npu[counter],removedPURecoPhoton_npu[counter],allPURecoPhoton_npu[counter],"effic");
+
+  fillFractionHisto(photon_PU_fakerate_1_eta[counter],removedSignalRecoPhoton_eta[counter],allRemovedRecoPhoton_eta[counter],"effic");
+  fillFractionHisto(photon_PU_fakerate_1_pt[counter],removedSignalRecoPhoton_pt[counter],allRemovedRecoPhoton_pt[counter],"effic");
+  fillFractionHisto(photon_PU_fakerate_1_npu[counter],removedSignalRecoPhoton_npu[counter],allRemovedRecoPhoton_npu[counter],"effic");
+
+  fillFractionHisto(photon_PU_fakerate_2_eta[counter],removedSignalRecoPhoton_eta[counter],allSignalRecoPhoton_eta[counter],"effic");
+  fillFractionHisto(photon_PU_fakerate_2_pt[counter],removedSignalRecoPhoton_pt[counter],allSignalRecoPhoton_pt[counter],"effic");
+  fillFractionHisto(photon_PU_fakerate_2_npu[counter],removedSignalRecoPhoton_npu[counter],allSignalRecoPhoton_npu[counter],"effic");
+
 }
 
 void
@@ -642,6 +1029,49 @@ TrackValidatorAlgos::fillHistosFromVectors(int counter)
 void
 TrackValidatorAlgos::fillHistosFromVectorsPF(int counter)
 {
+
+  fillPlotFromVector(num_photon_simul_eta[counter],allSignalPhoton_eta[counter]);
+  fillPlotFromVector(num_assoc_photon_eta[counter],assSignalPhoton_eta[counter]);
+
+  fillPlotFromVector(num_photon_simul_pt[counter],allSignalPhoton_pt[counter]);
+  fillPlotFromVector(num_assoc_photon_pt[counter],assSignalPhoton_pt[counter]);
+
+  fillPlotFromVector(num_photon_simul_npu[counter],allSignalPhoton_npu[counter]);
+  fillPlotFromVector(num_assoc_photon_npu[counter],assSignalPhoton_npu[counter]);
+
+
+  fillPlotFromVector(num_photon_reco_eta[counter],allRecoPhoton_eta[counter]);
+  fillPlotFromVector(num_assoc2_photon_eta[counter],signalRecoPhoton_eta[counter]);
+
+  fillPlotFromVector(num_photon_reco_pt[counter],allRecoPhoton_pt[counter]);
+  fillPlotFromVector(num_assoc2_photon_pt[counter],signalRecoPhoton_pt[counter]);
+
+  fillPlotFromVector(num_photon_reco_npu[counter],allRecoPhoton_npu[counter]);
+  fillPlotFromVector(num_assoc2_photon_npu[counter],signalRecoPhoton_pt[counter]);
+
+
+  fillPlotFromVector(num_removedPURecoPhoton_eta[counter],removedPURecoPhoton_eta[counter]);
+  fillPlotFromVector(num_allPURecoPhoton_eta[counter],allPURecoPhoton_eta[counter]);
+
+  fillPlotFromVector(num_removedPURecoPhoton_pt[counter],removedPURecoPhoton_pt[counter]);
+  fillPlotFromVector(num_allPURecoPhoton_pt[counter],allPURecoPhoton_pt[counter]);
+
+  fillPlotFromVector(num_removedPURecoPhoton_npu[counter],removedPURecoPhoton_npu[counter]);
+  fillPlotFromVector(num_allPURecoPhoton_npu[counter],allPURecoPhoton_npu[counter]);
+
+
+  fillPlotFromVector(num_removedSignalRecoPhoton_eta[counter],removedSignalRecoPhoton_eta[counter]);
+  fillPlotFromVector(num_removedSignalRecoPhoton_pt[counter],removedSignalRecoPhoton_pt[counter]);
+  fillPlotFromVector(num_removedSignalRecoPhoton_npu[counter],removedSignalRecoPhoton_npu[counter]);
+
+  fillPlotFromVector(num_allRemovedRecoPhoton_eta[counter],allRemovedRecoPhoton_eta[counter]);
+  fillPlotFromVector(num_allRemovedRecoPhoton_pt[counter],allRemovedRecoPhoton_pt[counter]);
+  fillPlotFromVector(num_allRemovedRecoPhoton_npu[counter],allRemovedRecoPhoton_npu[counter]);
+
+  fillPlotFromVector(num_allSignalRecoPhoton_eta[counter],allSignalRecoPhoton_eta[counter]);
+  fillPlotFromVector(num_allSignalRecoPhoton_pt[counter],allSignalRecoPhoton_pt[counter]);
+  fillPlotFromVector(num_allSignalRecoPhoton_npu[counter],allSignalRecoPhoton_npu[counter]);
+
 }
 
 void

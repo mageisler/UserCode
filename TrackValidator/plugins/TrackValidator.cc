@@ -26,6 +26,10 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 
+#include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
+#include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruth.h"
+#include "RecoEgamma/EgammaMCTools/interface/ElectronMCTruth.h"
+
 using namespace std;
 using namespace edm;
 using namespace reco;
@@ -48,6 +52,7 @@ TrackValidator::TrackValidator(const edm::ParameterSet& iConfig):TrackValidatorA
   tcRefLabel_ = iConfig.getParameter<InputTag>("tcRefLabel");
   tcLabels_ = iConfig.getParameter<vector<InputTag> >("tcLabel");
 
+  pfRefLabel_ = iConfig.getParameter<InputTag>("pfRefLabel");
   pfLabels_ = iConfig.getParameter<vector<InputTag> >("pfLabel");
 
   tpLabel_ = iConfig.getParameter<InputTag>("TPLabel");
@@ -56,6 +61,8 @@ TrackValidator::TrackValidator(const edm::ParameterSet& iConfig):TrackValidatorA
 
   Service<TFileService> tfs;
   vector<TFileDirectory>* subDir(new vector<TFileDirectory>());
+
+  TrackValidatorAlgos::CreateIntervalVectors();
 
   for(unsigned tcl=0; tcl<tcLabels_.size(); tcl++){
 
@@ -96,9 +103,8 @@ TrackValidator::TrackValidator(const edm::ParameterSet& iConfig):TrackValidatorA
 
 TrackValidator::~TrackValidator()
 {
- 
-   // do anything here that needs to be done at desctruction time
-   // (e.g. close files, deallocate resources etc.)
+
+  delete thePhotonMCTruthFinder_;
 
 }
 
@@ -110,6 +116,9 @@ TrackValidator::~TrackValidator()
 void 
 TrackValidator::beginRun(edm::Run const&, edm::EventSetup const&)
 {
+
+  thePhotonMCTruthFinder_ = new PhotonMCTruthFinder();
+
 }
 
 // ------------ method called for each event  ------------
@@ -280,11 +289,45 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
 
   // ########################################################
-  // part of the uncharged particle analysis
+  // part of the photon analysis
   // ########################################################
+
+  //get simtrack info
+  vector<SimTrack> theSimTracks;
+  vector<SimVertex> theSimVertices;
+
+  Handle<SimTrackContainer> SimTk;
+  Handle<SimVertexContainer> SimVtx;
+  iEvent.getByLabel("g4SimHits",SimTk);
+  iEvent.getByLabel("g4SimHits",SimVtx);
+
+  SimVertex maininteraction = SimVtx->at(0);
+
+  theSimTracks.insert(theSimTracks.end(),SimTk->begin(),SimTk->end());
+  theSimVertices.insert(theSimVertices.end(),SimVtx->begin(),SimVtx->end());
+
+  vector<PhotonMCTruth> mcPhotons=thePhotonMCTruthFinder_->find(theSimTracks,  theSimVertices);
 
   //loop over input collections
   for(unsigned pfl=0; pfl<pfLabels_.size(); pfl++){
+
+    //get reference particle flow collection from the event
+    Handle<PFCandidateCollection>  pfcRefCollectionH;
+    iEvent.getByLabel(pfRefLabel_,pfcRefCollectionH);
+
+    auto_ptr<PFCandidateCollection> RefPhotons(new PFCandidateCollection() );
+   
+    for(unsigned pfc_ite=0;pfc_ite<pfcRefCollectionH->size();pfc_ite++) {
+     
+      PFCandidatePtr candptr(pfcRefCollectionH,pfc_ite);
+      if((candptr->particleId()==PFCandidate::gamma) &&
+         (candptr->pt()>=photonPtMin_) &&
+         (candptr->momentum().eta()>=photonEtaMin_) &&
+         (candptr->momentum().eta()<=photonEtaMax_) &&
+         (fabs(candptr->vertex().z())<=photonTip_) &&
+         (sqrt(candptr->vertex().perp2())<=photonLip_)) RefPhotons->push_back(*candptr);
+
+    }
 
     //get particle flow collection from the event
     Handle<PFCandidateCollection>  pfcCollectionH;
@@ -304,7 +347,7 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     }
 
-    TrackValidatorAlgos::fill_photon_related_histos(pfl,TPCollectionH,photons,npu);
+    TrackValidatorAlgos::fill_photon_related_histos(pfl,mcPhotons,photons,RefPhotons,maininteraction,npu);
 
   }
 

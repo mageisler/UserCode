@@ -11,6 +11,7 @@
 <use name="DataFormats/ParticleFlowCandidate"/>
 <use name="SimTracker/Records"/>
 <use name="SimTracker/TrackAssociation"/>
+<use name="RecoEgamma/EgammaMCTools"/>
 <library   file="*.cc" name="TrackValidatorPlugins">
   <flags   EDM_PLUGIN="1"/>
 </library>
