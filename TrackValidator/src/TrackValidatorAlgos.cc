@@ -474,7 +474,7 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
       // Loop over recontructed photons
       for(PFCandidateConstIterator iPho = photons->begin(); iPho != photons->end(); iPho++){
 
-        if(photonMatching(mcPhi,mcEta,*iPho)){
+        if(photonMatching(mcPhi,mcEta,PT,*iPho)){
 
           isMatched = true;
           break;
@@ -535,8 +535,11 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
       float mcPhi= (*mcPho).fourMomentum().phi();
       float mcEta= (*mcPho).fourMomentum().pseudoRapidity();
       mcEta = etaTransformation(mcEta, (*mcPho).primaryVertex().z() );
+      float PX = (*mcPho).fourMomentum().px();
+      float PY = (*mcPho).fourMomentum().py();
+      float PT = sqrt(PX*PX + PY*PY);
 
-      if(photonMatching(mcPhi,mcEta,*iPho)){
+      if(photonMatching(mcPhi,mcEta,PT,*iPho)){
 
         if((mcPho->primaryVertex().x()==MainInt.position().x()) &&
            (mcPho->primaryVertex().y()==MainInt.position().y()) &&
@@ -595,8 +598,11 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
       float mcPhi= (*mcPho).fourMomentum().phi();
       float mcEta= (*mcPho).fourMomentum().pseudoRapidity();
       mcEta = etaTransformation(mcEta, (*mcPho).primaryVertex().z() );
+      float PX = (*mcPho).fourMomentum().px();
+      float PY = (*mcPho).fourMomentum().py();
+      float PT = sqrt(PX*PX + PY*PY);
 
-      if(photonMatching(mcPhi,mcEta,*refPho)){
+      if(photonMatching(mcPhi,mcEta,PT,*refPho)){
 
         isMatched = true;
         if((mcPho->primaryVertex().x()==MainInt.position().x()) &&
@@ -610,7 +616,7 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
 
     for(PFCandidateConstIterator iPho = photons->begin(); iPho != photons->end(); iPho++){
 
-      if(photonMatching(refPho->eta(),refPho->eta(),*iPho)){
+      if(photonMatching(refPho->eta(),refPho->eta(),refPho->pt(),*iPho)){
 
         isRemoved=false;
         break;
@@ -702,9 +708,11 @@ TrackValidatorAlgos::photonSelector(PhotonMCTruth pho, SimVertex MainInt)
 }
 
 bool 
-TrackValidatorAlgos::photonMatching(float mcPhi, float mcEta, PFCandidate reco_photon)
+TrackValidatorAlgos::photonMatching(float mcPhi, float mcEta, float mcPt, PFCandidate reco_photon)
 {
  
+  float recoPt = reco_photon.pt();
+
   float phiClu=reco_photon.phi();
   float etaClu=reco_photon.eta();
   float deltaPhi = phiClu-mcPhi;
@@ -717,9 +725,8 @@ TrackValidatorAlgos::photonMatching(float mcPhi, float mcEta, PFCandidate reco_p
   deltaEta=pow(deltaEta,2);
   float delta =  deltaPhi+deltaEta ;
 
-  if(delta < etaPhiDistance)  return true;
-
-  return false;
+  return ((delta < etaPhiDistance) &&
+          (fabs(1.-recoPt/mcPt)<=0.1));
 
 }
 
@@ -1047,7 +1054,7 @@ TrackValidatorAlgos::fillHistosFromVectorsPF(int counter)
   fillPlotFromVector(num_assoc2_photon_pt[counter],signalRecoPhoton_pt[counter]);
 
   fillPlotFromVector(num_photon_reco_npu[counter],allRecoPhoton_npu[counter]);
-  fillPlotFromVector(num_assoc2_photon_npu[counter],signalRecoPhoton_pt[counter]);
+  fillPlotFromVector(num_assoc2_photon_npu[counter],signalRecoPhoton_npu[counter]);
 
 
   fillPlotFromVector(num_removedPURecoPhoton_eta[counter],removedPURecoPhoton_eta[counter]);

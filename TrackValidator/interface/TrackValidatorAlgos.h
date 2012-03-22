@@ -16,7 +16,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id: TrackValidatorAlgos.h,v 1.4 2012/03/12 11:22:21 mgeisler Exp $
+// $Id: TrackValidatorAlgos.h,v 1.5 2012/03/16 11:12:00 mgeisler Exp $
 //
 //
 
@@ -109,11 +109,11 @@ class TrackValidatorAlgos{
 
   void fillFractionHisto(TH1F*,vector<int>,vector<int>,string);
 
-  bool photonMatching(float, float,PFCandidate);
-
-  float etaTransformation(float, float);
+  bool photonMatching(float, float, float, PFCandidate);
 
   bool photonSelector(PhotonMCTruth,SimVertex);
+
+  float etaTransformation(float, float);
 
 
   //private data members  
