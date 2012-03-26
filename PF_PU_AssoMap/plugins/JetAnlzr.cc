@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Jan 23 11:53:44 CET 2012
-// $Id: JetAnlzr.cc,v 1.1 2012/01/24 18:21:26 mgeisler Exp $
+// $Id: JetAnlzr.cc,v 1.2 2012/01/25 17:00:32 mgeisler Exp $
 //
 //
 
@@ -25,6 +25,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <unistd.h>
 #include <stdio.h>
 
 // user include files
@@ -43,6 +44,7 @@
 
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
+#include "DataFormats/JetReco/interface/PFJetCollection.h"
 #include "CondFormats/JetMETObjects/interface/FactorizedJetCorrector.h"
 #include "DataFormats/Math/interface/LorentzVector.h"
 #include "DataFormats/Math/interface/deltaR.h"
@@ -54,6 +56,7 @@
 
 //ROOT include files
 #include "TH3F.h"
+#include "TH2F.h"
 #include "TMath.h"
 
 using namespace edm;
@@ -92,9 +95,13 @@ class JetAnlzr : public edm::EDAnalyzer {
       string input_GenJets_;
       std::vector<string> input_RecoJets_;
       string label_pileupinfo_;
+      string label_JetCorrector_;
 
       char dirName_[256];
-      FactorizedJetCorrector* jec;
+
+      vector<TH2F*> WithVsPt, WithVsEta, WithVsNpu;
+      vector<TH2F*> WithOutVsPt, WithOutVsEta, WithOutVsNpu;
+
 };
 
 //
@@ -112,17 +119,31 @@ JetAnlzr::JetAnlzr(const edm::ParameterSet& iConfig)
 {
    //now do what ever initialization is needed
 
+
+       	Service<TFileService> tfserv;
+  	vector<TFileDirectory>* subDir(new vector<TFileDirectory>());
+
   	input_GenJets_ = iConfig.getParameter<string>("genJets");
   	input_RecoJets_ = iConfig.getParameter<vector<string> >("recoJets");
   	label_pileupinfo_ = iConfig.getParameter<string>("PileUpInfo");
+  	label_JetCorrector_ = iConfig.getParameter<string>("JetCorrector");
 
+	for(unsigned rjc_ite=0; rjc_ite<input_RecoJets_.size(); rjc_ite++){
 
-	vector<JetCorrectorParameters> jecPars;
+    	  string dirName = input_RecoJets_[rjc_ite];
+	  dirName.erase(dirName.length()-1,1);
 
-    	JetCorrectorParameters ijec("test.txt");
-    	jecPars.push_back(ijec);
-    
-	jec = new FactorizedJetCorrector(jecPars);
+          subDir->push_back(tfserv->mkdir(dirName));
+
+	  WithVsPt.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsPt","pt ratio with factor vs pt", 50, 0., 1000., 200, 0., 2.0));
+	  WithVsEta.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsEta","pt ratio with factor vs eta", 50, -5., 5., 200, 0., 2.0));
+	  WithVsNpu.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsNpu","pt ratio with factor vs npu", 50, -0.5, 49.5, 200, 0., 2.0));
+
+	  WithOutVsPt.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsPt","pt ratio without factor vs pt", 50, 0., 1000., 200, 0., 2.0));
+	  WithOutVsEta.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsEta","pt ratio without factor vs eta", 50, -5., 5., 200, 0., 2.0));
+	  WithOutVsNpu.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsNpu","pt ratio without factor vs npu", 50, -0.5, 49.5, 200, 0., 2.0));
+
+	}
 }
 
 
@@ -211,18 +232,15 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	// loop over all reco jet collections
 	for(unsigned rjc_ite=0; rjc_ite<input_RecoJets_.size(); rjc_ite++){
 
-	  string rhoLabel = input_RecoJets_[rjc_ite];
-	  rhoLabel.erase(rhoLabel.length()-1,1);
-
-	  char etaName[256];
-	  sprintf(etaName,"etaRecoRatio_%s",input_RecoJets_[rjc_ite].c_str());
-  	  TH3F* etaRatioHisto = tfserv->make<TH3F>(etaName,etaName, 50, -5.0, 5.0, 200, 0., 2.0, 5, 0, 25);
-
-	  char ptName[256];
-	  sprintf(ptName,"ptRecoRatio_%s",input_RecoJets_[rjc_ite].c_str());
-  	  TH3F* ptRatioHisto = tfserv->make<TH3F>(ptName,ptName, 50, 0., 500., 200, 0., 2.0, 5, 0, 25);
+	  string jetLabel = input_RecoJets_[rjc_ite];
+	  jetLabel.erase(jetLabel.length()-1,1);
 
 	  // get the information for the reco jets
+        
+	  Handle<PFJetCollection> jets;        			//define input jet collection
+	  iEvent.getByLabel( jetLabel, jets);    		//get input jet collection
+
+	  const JetCorrector* corrector = JetCorrector::getJetCorrector(label_JetCorrector_,iSetup);  
 
 	  Handle<vector<float> > jetPtH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"pt",jetPtH);
@@ -233,35 +251,31 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  Handle<vector<float> > jetPhiH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"phi",jetPhiH);
 
-	  Handle<vector<float> > jetAreaH;
-    	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"jetArea",jetAreaH);
-
-	  Handle<double > jetRhoH;
-    	  iEvent.getByLabel( rhoLabel,"rho",jetRhoH);
-     	  double rho = jetRhoH.product()[0];
-
 	  unsigned numJets = 2;
-	  if(jetPtH->size()<2) numJets = jetPtH->size();
+	  if(jets->size()<2) numJets = jets->size();
 
  	  for(unsigned reco_ite=0; reco_ite<numJets; reco_ite++){
  	  
-	    if(jetPtH->at(reco_ite)<30.0) continue;
+	    if(jetPtH->at(reco_ite)<30.0) continue;  
 
 	    TLV recoJet( jetPtH->at(reco_ite),
 		         jetEtaH->at(reco_ite),
 			 jetPhiH->at(reco_ite),
-			 0.0 );	    
+			 0.0 );	 
 
-            jec->setJetEta(jetEtaH->at(reco_ite));
-            jec->setJetPt(jetPtH->at(reco_ite));
-            jec->setJetA(jetAreaH->at(reco_ite));
-            jec->setRho(rho);
-            float factor = jec->getCorrection();
+            double factor = corrector->correction(jets->at(reco_ite),iEvent,iSetup);
 
 	    TLV genJet;
             if (findGenJet(recoJet,genJets,&genJet)){
-              ptRatioHisto->Fill(genJet.Pt(), factor * recoJet.Pt() /genJet.Pt(),  npu);
-              etaRatioHisto->Fill(genJet.Eta(), factor * recoJet.Pt() /genJet.Pt(),  npu);
+
+              WithVsPt[rjc_ite]->Fill(genJet.Pt(), factor * recoJet.Pt() /genJet.Pt());
+              WithVsEta[rjc_ite]->Fill(genJet.Eta(), factor * recoJet.Pt() /genJet.Pt());
+              WithVsNpu[rjc_ite]->Fill(npu, factor * recoJet.Pt() /genJet.Pt());
+
+              WithOutVsPt[rjc_ite]->Fill(genJet.Pt(), recoJet.Pt() /genJet.Pt());
+              WithOutVsEta[rjc_ite]->Fill(genJet.Eta(), recoJet.Pt() /genJet.Pt());
+              WithOutVsNpu[rjc_ite]->Fill(npu, recoJet.Pt() /genJet.Pt());
+
 	    }
 
 	  }
