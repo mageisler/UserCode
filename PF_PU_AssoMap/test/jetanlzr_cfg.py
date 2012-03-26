@@ -34,7 +34,8 @@ process = cms.Process("JetAnlzr")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:/tmp/mgeisler/GluGluToHToGG_M-120_7TeV-pythia6.root'),
+    #fileNames = cms.untracked.vstring('file:/tmp/mgeisler/GluGluToHToGG_M-120_7TeV-pythia6.root'),
+    fileNames = cms.untracked.vstring('file:/tmp/mgeisler/QCD_Pt-600to800.root'),
     #eventsToProcess = cms.untracked.VEventRange('1:93299'),
 )
 		
@@ -100,6 +101,17 @@ process.FirstVertexTrackCollectionAll = cms.EDProducer('FirstVertexTracks',
           VertexTrackAssociationMap = cms.InputTag('Tracks2VertexAll'),
 )
 
+process.PFCandidates1st = cms.EDProducer('PFCand_NoPU_WithAM',
+	  PFCandidateCollection = cms.InputTag('particleFlow'),
+	  VertexCollection = cms.InputTag('offlinePrimaryVertices'),
+	  VertexTrackAssociationMap = cms.InputTag('Tracks2Vertex1st'),
+	  ConversionsCollection = cms.InputTag('allConversions'),
+	  V0KshortCollection = cms.InputTag('generalV0Candidates','Kshort'),
+	  V0LambdaCollection = cms.InputTag('generalV0Candidates','Lambda'),
+	  NIVertexCollection = cms.InputTag('particleFlowDisplacedVertex'),
+	  IpMin = cms.double(0.3),
+)
+
 process.PFCandidatesAll1 = cms.EDProducer('PFCand_NoPU_WithAM',
 	  PFCandidateCollection = cms.InputTag('particleFlow'),
 	  VertexCollection = cms.InputTag('offlinePrimaryVertices'),
@@ -147,7 +159,7 @@ process.PFCandidatesAll10 = cms.EDProducer('PFCand_NoPU_WithAM',
 process.trackValidator = cms.EDAnalyzer('TrackValidator',
 	tcLabel = cms.VInputTag(cms.InputTag("cutsRecoTracks"),cms.InputTag("FirstVertexTrackCollection1st"),cms.InputTag("FirstVertexTrackCollectionAll")),
     	tcRefLabel = cms.InputTag("generalTracks"),
-	pfLabel = cms.VInputTag(cms.InputTag("particleFlow"),cms.InputTag("PFCandidatesAll1"),cms.InputTag("PFCandidatesAll3"),cms.InputTag("PFCandidatesAll5"),cms.InputTag("PFCandidatesAll10")),
+	pfLabel = cms.VInputTag(cms.InputTag("particleFlow"),cms.InputTag("PFCandidatesAll1"),cms.InputTag("PFCandidatesAll3"),cms.InputTag("PFCandidatesAll5"),cms.InputTag("PFCandidatesAll10"),cms.InputTag("PFCandidates1st")),
     	pfRefLabel = cms.InputTag("particleFlow"),
     	PULabel = cms.InputTag("addPileupInfo"),
     	TPLabel = cms.InputTag("mergedtruth","MergedTrackTruth"),
@@ -163,16 +175,48 @@ process.trackValidator = cms.EDAnalyzer('TrackValidator',
 	
 from RecoJets.JetProducers.kt4PFJets_cfi import kt4PFJets	
 
-process.kt6PFJetsAll = kt4PFJets.clone(
+process.kt4PFJets1st = kt4PFJets.clone(
+	src = cms.InputTag("PFCandidates1st"),
+	rParam = cms.double(0.4),
+	doAreaFastjet = cms.bool(True),
+	doRhoFastjet = cms.bool(True),
+	Ghost_EtaMax = cms.double(6.5)
+)	
+
+process.kt4PFJetsAll1 = kt4PFJets.clone(
+	src = cms.InputTag("PFCandidatesAll1"),
+	rParam = cms.double(0.4),
+	doAreaFastjet = cms.bool(True),
+	doRhoFastjet = cms.bool(True),
+	Ghost_EtaMax = cms.double(6.5)
+)	
+
+process.kt4PFJetsAll3 = kt4PFJets.clone(
 	src = cms.InputTag("PFCandidatesAll3"),
-	rParam = cms.double(0.6),
+	rParam = cms.double(0.4),
+	doAreaFastjet = cms.bool(True),
+	doRhoFastjet = cms.bool(True),
+	Ghost_EtaMax = cms.double(6.5)
+)	
+
+process.kt4PFJetsAll5 = kt4PFJets.clone(
+	src = cms.InputTag("PFCandidatesAll5"),
+	rParam = cms.double(0.4),
+	doAreaFastjet = cms.bool(True),
+	doRhoFastjet = cms.bool(True),
+	Ghost_EtaMax = cms.double(6.5)
+)	
+
+process.kt4PFJetsAll10 = kt4PFJets.clone(
+	src = cms.InputTag("PFCandidatesAll10"),
+	rParam = cms.double(0.4),
 	doAreaFastjet = cms.bool(True),
 	doRhoFastjet = cms.bool(True),
 	Ghost_EtaMax = cms.double(6.5)
 )
 
-process.kt6GenJetsn = cms.EDProducer("CandViewNtpProducer",
-	src = cms.InputTag("kt6GenJets"),
+process.kt4GenJetsn = cms.EDProducer("CandViewNtpProducer",
+	src = cms.InputTag("kt4GenJets"),
     	lazyParser = cms.untracked.bool(True),
     	prefix = cms.untracked.string(""),
     	eventInfo = cms.untracked.bool(True),
@@ -192,8 +236,8 @@ process.kt6GenJetsn = cms.EDProducer("CandViewNtpProducer",
 	),     
 )
 
-process.kt6PFJetsAlln = cms.EDProducer("CandViewNtpProducer", 
-    src = cms.InputTag("kt6PFJetsAll"),
+process.kt4PFJetsAll1n = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJetsAll1"),
     lazyParser = cms.untracked.bool(True),
     prefix = cms.untracked.string(""),
     eventInfo = cms.untracked.bool(True),
@@ -217,27 +261,138 @@ process.kt6PFJetsAlln = cms.EDProducer("CandViewNtpProducer",
     )
 )
 
-from JetMETCorrections.Configuration.JetCorrectionServices_cff import *
-from JetMETCorrections.Configuration.JetCorrectionProducers_cff import *
+process.kt4PFJets1stn = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJets1st"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ),
+    )
+)
 
-process.kt6PFJetsAllJCS = cms.ESSource('LXXXCorrectionService',
-        level     = cms.string('L3Absolute'),
-        algorithm = cms.string('KT6PF'),
-        useCondDB = cms.untracked.bool(True),
-        era = cms.string(''),
-        section   = cms.string(''),
-) 
+process.kt4PFJetsAll3n = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJetsAll3"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ),
+    )
+)
 
-process.kt6PFJetsAllJCP = cms.EDProducer('PFJetCorrectionProducer',
-        src        = cms.InputTag('kt6PFJetsAll'),
-        correctors = cms.vstring('kt6PFJetsAllJCS')
-) 
+process.kt4PFJetsAll5n = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJetsAll5"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ),
+    )
+)
+
+process.kt4PFJetsAll10n = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJetsAll10"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ),
+    )
+)
+
+process.kt4PFJetsn = cms.EDProducer("CandViewNtpProducer", 
+    src = cms.InputTag("kt4PFJets"),
+    lazyParser = cms.untracked.bool(True),
+    prefix = cms.untracked.string(""),
+    eventInfo = cms.untracked.bool(True),
+    variables = cms.VPSet(
+        cms.PSet(
+            tag = cms.untracked.string("pt"),
+            quantity = cms.untracked.string("pt")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("jetArea"),
+            quantity = cms.untracked.string("jetArea")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("eta"),
+            quantity = cms.untracked.string("eta")
+        ),
+        cms.PSet(
+            tag = cms.untracked.string("phi"),
+            quantity = cms.untracked.string("phi")
+        ),
+    )
+)
+
+process.load("JetMETCorrections.Configuration.JetCorrectionServicesAllAlgos_cff")
     
 process.jetanalyzer = cms.EDAnalyzer('JetAnlzr',
-	genJets = cms.string("kt6GenJetsn"),
-	recoJets = cms.vstring("kt6PFJetsAlln"),
+	genJets = cms.string("kt4GenJetsn"),
+	recoJets = cms.vstring("kt4PFJets1stn","kt4PFJetsAll1n","kt4PFJetsAll3n","kt4PFJetsAll5n","kt4PFJetsAll10n","kt4PFJetsn"),
 	PileUpInfo = cms.string("addPileupInfo"),
-	JetCorrector = cms.string("kt6PFJetsAllJC")
+	JetCorrector = cms.string("kt4PFL1L2L3")
 )
 
 
@@ -279,10 +434,11 @@ process.FVTC = cms.Sequence(
 
 ### produce a collection of PFCandidates associated to the first vertex
 process.PFCand = cms.Sequence(
-      process.PFCandidatesAll1
-    * process.PFCandidatesAll3
-    * process.PFCandidatesAll5
-    * process.PFCandidatesAll10
+      process.PFCandidates1st
+    + process.PFCandidatesAll1
+    + process.PFCandidatesAll3
+    + process.PFCandidatesAll5
+    + process.PFCandidatesAll10
 )
 
 ### do the efficiency and fake rate analyses for the charged particles
@@ -292,18 +448,22 @@ process.MTV = cms.Sequence(
 
 ### produce a jet collection from the PFCandidates
 process.PFJ = cms.Sequence(
-      process.kt6PFJetsAll
+      process.kt4PFJets1st
+    + process.kt4PFJetsAll1
+    + process.kt4PFJetsAll3
+    + process.kt4PFJetsAll5
+    + process.kt4PFJetsAll10
 )
 
 ### produce the edm nTuples from the jet collection
 process.nTs = cms.Sequence(
-      process.kt6GenJetsn
-    + process.kt6PFJetsAlln
-)
-
-### produce the jet correction services
-process.jcs = cms.Sequence(
-      process.kt6PFJetsAllJCP
+      process.kt4GenJetsn
+    + process.kt4PFJets1stn
+    + process.kt4PFJetsAll1n
+    + process.kt4PFJetsAll3n
+    + process.kt4PFJetsAll5n
+    + process.kt4PFJetsAll10n
+    + process.kt4PFJetsn
 )
 		
 ### do the jet analysis				  
@@ -319,7 +479,6 @@ process.p = cms.Path(
     * process.MTV		### do the efficiency and fake rate analyses for the particles 
     * process.PFJ		### produce a jet collection from the PFCandidates
     * process.nTs		### produce the edm nTuples from the jet collection
-    * process.jcs		### produce the jet correction services
     * process.JA		### do the jet analysis	
 )
 
