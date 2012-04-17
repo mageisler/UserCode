@@ -2,6 +2,7 @@
 
 // system include files
 #include <memory>
+#include <string>
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -124,7 +125,9 @@ TrackValidator::beginRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called for each event  ------------
 void
 TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
-{       
+{     
+
+  TrackValidatorAlgos::GetInputCollections(iEvent);  
 
   //associate reco tracks to tracking particles
   ESHandle<TrackAssociatorBase> theAssociator;
@@ -166,7 +169,7 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     //get track collection from the event
     Handle<View<Track> >  trackCollectionH;
-    if(!iEvent.getByLabel(tcLabels_[tcl],trackCollectionH)&&ignoremissingtkcollection_) continue;
+    iEvent.getByLabel(tcLabels_[tcl],trackCollectionH);
 
     RecoToSimCollection recSimColl;
     recSimColl=theTrackAssociator_->associateRecoToSim(trackCollectionH,TPCollectionH,&iEvent,&iSetup);
@@ -197,7 +200,6 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(tcl,tp,matchedTrackPointer,npu);
 
-
     }
 
     // #####################################################
@@ -210,6 +212,8 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       vector<pair<TrackingParticleRef, double> > tp;
       if(recSimColl.find(track) != recSimColl.end()) tp = recSimColl[track];
+
+      double weight = 1.;
 
       bool isMatched = false;
       bool isSigMatched = false;
@@ -230,9 +234,10 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       }
 
-      TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(tcl,*track,isMatched,isSigMatched,npu);
+      TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(tcl,*track,isMatched,isSigMatched,npu,tp);
 
     }
+
 
     // #####################################################
     // fill pileup related histograms (LOOP OVER REF TRACKS)
@@ -276,7 +281,7 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       }    
 
-      if(isMatched) TrackValidatorAlgos::fill_removedRecoTrack_histos(tcl,*refTrack,isSigMatched,removedTrack,npu);
+      if(isMatched) TrackValidatorAlgos::fill_removedRecoTrack_histos(tcl,*refTrack,isSigMatched,removedTrack,npu,refTp);
 
     }
 

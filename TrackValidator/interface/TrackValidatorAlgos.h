@@ -16,7 +16,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id: TrackValidatorAlgos.h,v 1.5 2012/03/16 11:12:00 mgeisler Exp $
+// $Id: TrackValidatorAlgos.h,v 1.6 2012/03/22 15:10:16 mgeisler Exp $
 //
 //
 
@@ -45,6 +45,8 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 
+#include "DataFormats/JetReco/interface/GenJetCollection.h"
+
 #include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
 #include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruth.h"
 #include "RecoEgamma/EgammaMCTools/interface/ElectronMCTruth.h"
@@ -56,6 +58,8 @@ using namespace std;
 using namespace edm;
 using namespace reco;
 
+typedef vector<pair<TrackingParticleRef, double> > TpDoubV;
+
 //
 // class declaration
 //
@@ -66,6 +70,8 @@ class TrackValidatorAlgos{
     TrackValidatorAlgos(const edm::ParameterSet&);
 
     void CreateIntervalVectors();
+
+    void GetInputCollections(const Event&);
 
     void initialize(){setUpVectors();};
 
@@ -81,9 +87,9 @@ class TrackValidatorAlgos{
 
     void fill_recoAssociated_simTrack_histos(int,TrackingParticle*,const Track*,int);
 
-    void fill_simAssociated_recoTrack_histos(int,const Track&,bool,bool,int);
+    void fill_simAssociated_recoTrack_histos(int,const Track&,bool,bool,int,TpDoubV);
 
-    void fill_removedRecoTrack_histos(int,const Track&,bool,bool,int);
+    void fill_removedRecoTrack_histos(int,const Track&,bool,bool,int,TpDoubV);
 
     void fill_photon_related_histos(int,vector<PhotonMCTruth>,auto_ptr<PFCandidateCollection>,
                                     auto_ptr<PFCandidateCollection>,SimVertex,int);
@@ -95,6 +101,10 @@ class TrackValidatorAlgos{
     void fillHistosFromVectorsPF(int);
 
     bool findRefTrack(const Track&,const Track&);
+
+    double getTrackWeight(const TrackingParticle*, const GenJetCollection*);
+
+    bool isGenPart(const TrackingParticle*, const GenParticle*);
 
  protected:
   //protected functions 
@@ -119,6 +129,11 @@ class TrackValidatorAlgos{
   //private data members  
 
   bool useLogpt_;
+
+  bool useJetWeighting_;
+  string genJetCollLabel_;
+
+  Handle<GenJetCollection> genJetCollH;
 
   TrackingParticleSelector* generalTpSignalSelector;
   TrackingParticleSelector* generalTpPUSelector;
