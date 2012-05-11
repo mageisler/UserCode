@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Jan 23 11:53:44 CET 2012
-// $Id: JetAnlzr.cc,v 1.2 2012/01/25 17:00:32 mgeisler Exp $
+// $Id: JetAnlzr.cc,v 1.3 2012/03/26 12:32:56 mgeisler Exp $
 //
 //
 
@@ -78,29 +78,20 @@ class JetAnlzr : public edm::EDAnalyzer {
 
 
    private:
-      virtual void beginJob() ;
       virtual void analyze(const edm::Event&, const edm::EventSetup&);
       virtual bool findGenJet(TLV, vector<TLV>, TLV*);
-      virtual void endJob() ;
-
-      virtual void beginRun(edm::Run const&, edm::EventSetup const&);
-      virtual void endRun(edm::Run const&, edm::EventSetup const&);
-      virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
-      virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
-
-      // ----------member data ---------------------------
+      virtual vector<int> GetSortedList(vector<float>);
 
       // ----------member data ---------------------------
 
       string input_GenJets_;
       std::vector<string> input_RecoJets_;
       string label_pileupinfo_;
-      string label_JetCorrector_;
 
       char dirName_[256];
 
-      vector<TH2F*> WithVsPt, WithVsEta, WithVsNpu;
-      vector<TH2F*> WithOutVsPt, WithOutVsEta, WithOutVsNpu;
+      vector<TH3F*> ResponseVsPt, ResponseVsEta;
+      vector<TH3F*> ResolutionVsPt, ResolutionVsEta;
 
 };
 
@@ -126,7 +117,6 @@ JetAnlzr::JetAnlzr(const edm::ParameterSet& iConfig)
   	input_GenJets_ = iConfig.getParameter<string>("genJets");
   	input_RecoJets_ = iConfig.getParameter<vector<string> >("recoJets");
   	label_pileupinfo_ = iConfig.getParameter<string>("PileUpInfo");
-  	label_JetCorrector_ = iConfig.getParameter<string>("JetCorrector");
 
 	for(unsigned rjc_ite=0; rjc_ite<input_RecoJets_.size(); rjc_ite++){
 
@@ -135,13 +125,11 @@ JetAnlzr::JetAnlzr(const edm::ParameterSet& iConfig)
 
           subDir->push_back(tfserv->mkdir(dirName));
 
-	  WithVsPt.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsPt","pt ratio with factor vs pt", 50, 0., 1000., 200, 0., 2.0));
-	  WithVsEta.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsEta","pt ratio with factor vs eta", 50, -5., 5., 200, 0., 2.0));
-	  WithVsNpu.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithFactorVsNpu","pt ratio with factor vs npu", 50, -0.5, 49.5, 200, 0., 2.0));
+	  ResponseVsPt.push_back(subDir->at(rjc_ite).make<TH3F>("ptResponseVsPtVsNpu","pt response vs pt vs npu", 50, 0., 1000., 50, -0.5, 49.5, 100, 0., 2.0));
+	  ResponseVsEta.push_back(subDir->at(rjc_ite).make<TH3F>("ptResponseVsEtaVsNpu","pt response vs eta vs npu", 50, -5., 5., 50, -0.5, 49.5, 100, 0., 2.0));
 
-	  WithOutVsPt.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsPt","pt ratio without factor vs pt", 50, 0., 1000., 200, 0., 2.0));
-	  WithOutVsEta.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsEta","pt ratio without factor vs eta", 50, -5., 5., 200, 0., 2.0));
-	  WithOutVsNpu.push_back(subDir->at(rjc_ite).make<TH2F>("ptRatioWithOutFactorVsNpu","pt ratio without factor vs npu", 50, -0.5, 49.5, 200, 0., 2.0));
+	  ResolutionVsPt.push_back(subDir->at(rjc_ite).make<TH3F>("ptResolutionVsPtVsNpu","pt resolution vs pt vs npu", 50, 0., 1000., 50, -0.5, 49.5, 50, -1.0, 1.0));
+	  ResolutionVsEta.push_back(subDir->at(rjc_ite).make<TH3F>("ptResolutionVsEtaVsNpu","pt resolution vs eta vs npu", 50, -5., 5., 50, -0.5, 49.5, 50, -1.0, 1.0));
 
 	}
 }
@@ -177,6 +165,37 @@ JetAnlzr::findGenJet(TLV recoJet, vector<TLV> genJets, TLV* genJet)
 	}    
 
 	return false;
+
+}
+ 
+vector<int> 
+JetAnlzr::GetSortedList(vector<float> Pt)
+{
+
+  vector<int> output;
+
+  float max1 = 1000000.;
+
+  for(unsigned i=0;i<Pt.size();i++){  
+
+    float max2 = 0.;
+    int max_pos = 0;
+
+    for(unsigned ite=0; ite<Pt.size();ite++){
+
+      if((Pt.at(ite)<max1) && (Pt.at(ite)>max2)){
+        max2=Pt.at(ite);
+        max_pos=ite;
+      }
+
+    }
+
+    max1=max2;
+    output.push_back(max_pos);
+
+  }
+
+  return output;
 
 }
 
@@ -218,7 +237,7 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
  	for(unsigned gen_ite=0; gen_ite<genJetPtH->size(); gen_ite++){
  	  
-	  if(genJetPtH->at(gen_ite)<30.0) continue;
+	  if(genJetPtH->at(gen_ite)<0.0) continue;
 
 	  TLV genJet( genJetPtH->at(gen_ite),
 		      genJetEtaH->at(gen_ite),
@@ -232,18 +251,12 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	// loop over all reco jet collections
 	for(unsigned rjc_ite=0; rjc_ite<input_RecoJets_.size(); rjc_ite++){
 
-	  string jetLabel = input_RecoJets_[rjc_ite];
-	  jetLabel.erase(jetLabel.length()-1,1);
-
 	  // get the information for the reco jets
-        
-	  Handle<PFJetCollection> jets;        			//define input jet collection
-	  iEvent.getByLabel( jetLabel, jets);    		//get input jet collection
-
-	  const JetCorrector* corrector = JetCorrector::getJetCorrector(label_JetCorrector_,iSetup);  
 
 	  Handle<vector<float> > jetPtH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"pt",jetPtH);
+
+          vector<int> SortedPt = GetSortedList(*jetPtH);
 
 	  Handle<vector<float> > jetEtaH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"eta",jetEtaH);
@@ -251,30 +264,26 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  Handle<vector<float> > jetPhiH;
     	  iEvent.getByLabel( input_RecoJets_[rjc_ite],"phi",jetPhiH);
 
-	  unsigned numJets = 2;
-	  if(jets->size()<2) numJets = jets->size();
+ 	  for(unsigned reco_ite=0; reco_ite<SortedPt.size(); reco_ite++){
 
- 	  for(unsigned reco_ite=0; reco_ite<numJets; reco_ite++){
+            int pos = SortedPt.at(reco_ite);
  	  
-	    if(jetPtH->at(reco_ite)<30.0) continue;  
+// 	    if((jetPtH->at(pos)<30.0) || (reco_ite==2)) break;
+	    if(jetPtH->at(pos)<0.0) break; 
 
-	    TLV recoJet( jetPtH->at(reco_ite),
-		         jetEtaH->at(reco_ite),
-			 jetPhiH->at(reco_ite),
+	    TLV recoJet( jetPtH->at(pos),
+		         jetEtaH->at(pos),
+			 jetPhiH->at(pos),
 			 0.0 );	 
-
-            double factor = corrector->correction(jets->at(reco_ite),iEvent,iSetup);
 
 	    TLV genJet;
             if (findGenJet(recoJet,genJets,&genJet)){
 
-              WithVsPt[rjc_ite]->Fill(genJet.Pt(), factor * recoJet.Pt() /genJet.Pt());
-              WithVsEta[rjc_ite]->Fill(genJet.Eta(), factor * recoJet.Pt() /genJet.Pt());
-              WithVsNpu[rjc_ite]->Fill(npu, factor * recoJet.Pt() /genJet.Pt());
+              ResponseVsPt[rjc_ite]->Fill(genJet.Pt(), npu, recoJet.Pt() *1./genJet.Pt());
+              ResponseVsEta[rjc_ite]->Fill(genJet.Eta(), npu, recoJet.Pt() *1./genJet.Pt());
 
-              WithOutVsPt[rjc_ite]->Fill(genJet.Pt(), recoJet.Pt() /genJet.Pt());
-              WithOutVsEta[rjc_ite]->Fill(genJet.Eta(), recoJet.Pt() /genJet.Pt());
-              WithOutVsNpu[rjc_ite]->Fill(npu, recoJet.Pt() /genJet.Pt());
+              ResolutionVsPt[rjc_ite]->Fill(genJet.Pt(), npu, (recoJet.Pt() - genJet.Pt())*1./genJet.Pt());
+              ResolutionVsEta[rjc_ite]->Fill(genJet.Eta(), npu, (recoJet.Pt() - genJet.Pt())*1./genJet.Pt());
 
 	    }
 
@@ -282,43 +291,6 @@ JetAnlzr::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	}
 
-}
-
-
-// ------------ method called once each job just before starting event loop  ------------
-void 
-JetAnlzr::beginJob()
-{
-}
-
-// ------------ method called once each job just after ending the event loop  ------------
-void 
-JetAnlzr::endJob() 
-{
-}
-
-// ------------ method called when starting to processes a run  ------------
-void 
-JetAnlzr::beginRun(edm::Run const&, edm::EventSetup const&)
-{ 
-}
-
-// ------------ method called when ending the processing of a run  ------------
-void 
-JetAnlzr::endRun(edm::Run const&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when starting to processes a luminosity block  ------------
-void 
-JetAnlzr::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when ending the processing of a luminosity block  ------------
-void 
-JetAnlzr::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
-{
 }
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
