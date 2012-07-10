@@ -29,6 +29,8 @@
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
 
+#include "DataFormats/JetReco/interface/PFJet.h"
+
 #include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
 #include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruth.h"
 #include "RecoEgamma/EgammaMCTools/interface/ElectronMCTruth.h"
@@ -54,14 +56,19 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
   nintpt = 40;
   
   //parameters for Pileup plots
-  minVertcount  = 0.;
-  maxVertcount  = 50.;
-  nintVertcount = 50;
+  minVertcount  = -0.5;
+  maxVertcount  = 59.5;
+  nintVertcount = 56;
   
   //parameters for track number plots
   minTrackcount  = -0.5;
-  maxTrackcount  = 499.5;
-  nintTrackcount = 500;
+  maxTrackcount  = 999.5;
+  nintTrackcount = 1000;
+  
+  //parameters for p contribution for jets plots
+  minContribution  = 0.;
+  maxContribution  = 1.;
+  nintContribution = 200;
 
   //configure TP selectors
 
@@ -82,6 +89,7 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
 
   useJetWeighting_ = iConfig.getUntrackedParameter<bool>("useJetWeighting",false);
   genJetCollLabel_ = iConfig.getUntrackedParameter<string>("genJetCollLabel");
+  jetCollLabel_ = iConfig.getUntrackedParameter<string>("jetCollLabel");
 
   if(useLogpt_){
     maxpt=log10(maxpt);
@@ -157,7 +165,10 @@ void
 TrackValidatorAlgos::GetInputCollections(const Event& iEvent){
 
   //get jet collection from the event
-  if(useJetWeighting_) iEvent.getByLabel(genJetCollLabel_,genJetCollH);
+  if(useJetWeighting_){
+    iEvent.getByLabel(genJetCollLabel_,genJetCollH);
+    iEvent.getByLabel(jetCollLabel_,jetCollH);
+  }
 
 }
 
@@ -166,10 +177,10 @@ TrackValidatorAlgos::setUpVectors()
 {
 
   // eta vectors
-  vector<int> etaintervalsh;
+  vector<double> etaintervalsh;
 
   for (int k=1;k<nintEta+1;k++) {
-    etaintervalsh.push_back(0);
+    etaintervalsh.push_back(0.);
   }
 
   allSignalTP_eta.push_back(etaintervalsh);
@@ -184,10 +195,10 @@ TrackValidatorAlgos::setUpVectors()
   removedPURT_eta.push_back(etaintervalsh);
 
   // pt vectors
-  vector<int> ptintervalsh;
+  vector<double> ptintervalsh;
 
   for (int k=1;k<nintpt+1;k++) {
-    ptintervalsh.push_back(0);
+    ptintervalsh.push_back(0.);
   }
 
   allSignalTP_pt.push_back(ptintervalsh);
@@ -201,10 +212,10 @@ TrackValidatorAlgos::setUpVectors()
   removedPURT_pt.push_back(ptintervalsh);
 
   // npu vectors
-  vector<int> vertcountintervalsh;
+  vector<double> vertcountintervalsh;
 
   for (int k=1;k<nintVertcount+1;k++) {
-    vertcountintervalsh.push_back(0);
+    vertcountintervalsh.push_back(0.);
   }   
 
   allSignalTP_npu.push_back(vertcountintervalsh);
@@ -230,10 +241,10 @@ TrackValidatorAlgos::setUpVectorsPF()
 {
 
   // eta vectors
-  vector<int> etaintervalsh;
+  vector<double> etaintervalsh;
 
   for (int k=1;k<nintEta+1;k++) {
-    etaintervalsh.push_back(0);
+    etaintervalsh.push_back(0.);
   }
 
   allSignalPhoton_eta.push_back(etaintervalsh);
@@ -247,10 +258,10 @@ TrackValidatorAlgos::setUpVectorsPF()
   allPURecoPhoton_eta.push_back(etaintervalsh);
 
   // pt vectors
-  vector<int> ptintervalsh;
+  vector<double> ptintervalsh;
 
   for (int k=1;k<nintpt+1;k++) {
-    ptintervalsh.push_back(0);
+    ptintervalsh.push_back(0.);
   }
 
   allSignalPhoton_pt.push_back(ptintervalsh);
@@ -264,10 +275,10 @@ TrackValidatorAlgos::setUpVectorsPF()
   allPURecoPhoton_pt.push_back(etaintervalsh);
 
   // npu vectors
-  vector<int> vertcountintervalsh;
+  vector<double> vertcountintervalsh;
 
   for (int k=1;k<nintVertcount+1;k++) {
-    vertcountintervalsh.push_back(0);
+    vertcountintervalsh.push_back(0.);
   }   
 
   allSignalPhoton_npu.push_back(vertcountintervalsh);
@@ -285,6 +296,19 @@ TrackValidatorAlgos::setUpVectorsPF()
 void 
 TrackValidatorAlgos::BookHistos(TFileDirectory subDir) 
 {
+
+  effic_npu_Contr.push_back(subDir.make<TH2F>("effic_npu_Contr", "efficiency vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+
+  num_simul_tracks_npu_Contr.push_back(subDir.make<TH2F>("num_simul_tracks_npu_Contr", "Number of simulated tracks vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+  num_assoc_npu_Contr.push_back(subDir.make<TH2F>("num_assoc(simToReco)_npu_Contr", "Number of associated simulated tracks vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+
+  fakerate_npu_Contr.push_back(subDir.make<TH2F>("fakerate_npu_Contr", "fakerate vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+  fakerate_npu_Contr_help.push_back(subDir.make<TH2F>("fakerate_npu_Contr_help", "HELP vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+
+  num_reco_tracks_npu_Contr.push_back(subDir.make<TH2F>("num_reco_tracks_npu_Contr", "Number of reconstructed tracks vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+  num_assoc2_npu_Contr.push_back(subDir.make<TH2F>("num_assoc(recoToSim)_npu_Contr", "Number of associated  reco tracks vs npu vs contribution", nintVertcount, minVertcount, maxVertcount, nintContribution, minContribution, maxContribution));
+
+  weights.push_back(subDir.make<TH1F>("weights", "weights", 1000, 0., 2.));
 
   //Book PileUp related histograms
 
@@ -443,29 +467,191 @@ TrackValidatorAlgos::BookHistosPF(TFileDirectory subDir)
 }
 
 void 
-TrackValidatorAlgos::fill_independent_histos(int counter, int npu, int rt)
+TrackValidatorAlgos::fill_independent_histos(int counter, int npu, int rt, unsigned st)
 {
 
   num_simul_vertex.at(counter)->Fill(npu);
-  num_simul_tracks.at(counter)->Fill(sim_tracks[counter]);
+  num_simul_tracks.at(counter)->Fill(st);
   num_reco_tracks.at(counter)->Fill(rt);
 
 }
 
-void 
-TrackValidatorAlgos::fill_generic_simTrack_histos(int counter, TrackingParticle* tp)
+void
+TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingParticle* tp, const Track* track, int npu, unsigned* st)
 {
+
+  bool isMatched = track;
+  double tp_eta = tp->momentum().eta();
 
   if((*generalTpSignalSelector)(*tp)){
 
     double weight = 1.;
     if(useJetWeighting_) weight = getTrackWeight(tp,&(*genJetCollH));
 
-    num_track_simul_eta.at(counter)->Fill(tp->momentum().eta(),weight);
-    num_track_simul_pt.at(counter)->Fill(tp->pt(),weight);
- 
+    (*st)++;
+
+    num_simul_tracks_npu_Contr[counter]->Fill(npu,weight);
+    if(isMatched) num_assoc_npu_Contr[counter]->Fill(npu,weight);
+
+    //effic vs eta
+    for(unsigned int f=0; f<etaintervals.size()-1; f++){
+      if(tp_eta>etaintervals[f]&&
+	 tp_eta<etaintervals[f+1]){
+	allSignalTP_eta[counter][f]+=weight;
+	if(isMatched){
+	  assSignalTP_eta[counter][f]+=weight;
+	}
+        break;
+      }
+    } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
+
+    //effic vs pt
+    for(unsigned int f=0; f<ptintervals.size()-1; f++){
+      if(sqrt(tp->momentum().perp2())>ptintervals[f]&&
+	 sqrt(tp->momentum().perp2())<ptintervals[f+1]){
+        allSignalTP_pt[counter][f]+=weight; 
+        if(isMatched){
+	  assSignalTP_pt[counter][f]+=weight;
+        }	
+        break;      
+      }
+    } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
+
+    //effic vs num pileup vertices
+    for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
+      if(npu == vertcountintervals[f]){
+        allSignalTP_npu[counter][f]+=weight;
+        if(isMatched){
+          assSignalTP_npu[counter][f]+=weight;
+        }
+        break;
+      }    
+    }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+
   }
 
+
+}
+
+void 
+TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter, const Track& track, bool isMatched, bool isSigMatched, int npu, TpDoubV tp)
+{
+
+  double weight = 1.;
+  if(useJetWeighting_) weight = getTrackWeightReco(track,&(*jetCollH));
+
+  num_reco_tracks_npu_Contr[counter]->Fill(npu,weight);
+  if(isSigMatched) num_assoc2_npu_Contr[counter]->Fill(npu,weight);
+
+  //fake rate vs eta
+  for (unsigned int f=0; f<etaintervals.size()-1; f++){
+    if (track.eta()>etaintervals[f]&&
+        track.eta()<etaintervals[f+1]) {
+      allRT_eta[counter][f]+=weight;
+      if (isSigMatched){
+	assSignalRT_eta[counter][f]+=weight;
+      }else{
+        if(isMatched) allAssPURT_eta[counter][f]+=weight;
+      }
+      break;
+    }
+  } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
+
+  //fake rate vs pt
+  for (unsigned int f=0; f<ptintervals.size()-1; f++){
+    if (sqrt(track.momentum().perp2())>ptintervals[f]&&
+        sqrt(track.momentum().perp2())<ptintervals[f+1]) {
+      allRT_pt[counter][f]+=weight;
+      if (isSigMatched){
+	assSignalRT_pt[counter][f]+=weight;
+      }	  
+      break;    
+    }
+  } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
+
+  //fake rate vs num pileup vertices
+  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+    if (npu == vertcountintervals[f]) {
+      allRT_npu[counter][f]+=weight;
+      if (isSigMatched){
+        assSignalRT_npu[counter][f]+=weight;
+      }
+      break;
+    }    
+  }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+
+
+}
+
+void 
+TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter, const Track& refTrack, bool isSigMatched,  bool isRemoved, int npu, TpDoubV tp)
+{
+
+  double weight = 1.;
+  if(useJetWeighting_){
+    weight = getTrackWeightReco(refTrack,&(*jetCollH));
+    weights[counter]->Fill(weight);
+  }
+
+  // vs eta
+  for (unsigned int f=0; f<etaintervals.size()-1; f++){
+    if (refTrack.eta()>etaintervals[f]&&
+        refTrack.eta()<etaintervals[f+1]) {
+      if(isSigMatched){
+        allSigRT_eta[counter][f]+=weight; 
+       }else{
+        allPURT_eta[counter][f]+=weight; 
+      }   
+     if(isRemoved){
+        allRemovedRT_eta[counter][f]+=weight;
+        if(isSigMatched){
+          removedSigRT_eta[counter][f]+=weight;
+        }else{
+          removedPURT_eta[counter][f]+=weight; 
+        }
+      } // END if(isRemoved){
+    } // END if(refTrack.eta()>etaintervals[counter][f]&&refTrack.eta()<etaintervals[counter][f+1){
+  } // END for(unsigned int f=0; f<etaintervals.size()-1; f++){
+
+  // vs pt
+  for (unsigned int f=0; f<ptintervals.size()-1; f++){
+    if (sqrt(refTrack.momentum().perp2())>ptintervals[f]&&
+        sqrt(refTrack.momentum().perp2())<ptintervals[f+1]){
+      if(isSigMatched){
+        allSigRT_pt[counter][f]+=weight; 
+      }else{
+        allPURT_pt[counter][f]+=weight; 
+      }   
+      if(isRemoved){
+        allRemovedRT_pt[counter][f]+=weight;
+        if(isSigMatched){
+          removedSigRT_pt[counter][f]+=weight; 
+        }else{
+	  removedPURT_pt[counter][f]+=weight; 
+        }
+      } // END if(isRemoved){
+    } // END if(sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]){
+  } // END for(unsigned int f=0; f<ptintervals.size()-1; f++){
+
+  // vs npu
+  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
+    if (npu == vertcountintervals[f]) {
+      if(isSigMatched){
+        allSigRT_npu[counter][f]+=weight; 
+      }else{
+        allPURT_npu[counter][f]+=weight; 
+      }   
+      if(isRemoved){
+        allRemovedRT_npu[counter][f]+=weight;
+        if(isSigMatched){
+          removedSigRT_npu[counter][f]+=weight;
+        }else{
+  	  removedPURT_npu[counter][f]+=weight; 
+        }
+      } // END if(isRemoved){
+    } // END if(npu == vertcountintervals[counter][f]){
+  } // END for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
+   
 }
 
 void 
@@ -609,7 +795,6 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
 
   for(PFCandidateConstIterator refPho = RefPhotons->begin(); refPho != RefPhotons->end(); refPho++){
 
-    bool isMatched = false;
     bool isSigMatched = false;
     bool isRemoved = true;
 
@@ -624,7 +809,6 @@ TrackValidatorAlgos::fill_photon_related_histos(int counter, vector<PhotonMCTrut
 
       if(photonMatching(mcPhi,mcEta,PT,*refPho)){
 
-        isMatched = true;
         if((mcPho->primaryVertex().x()==MainInt.position().x()) &&
            (mcPho->primaryVertex().y()==MainInt.position().y()) &&
            (mcPho->primaryVertex().z()==MainInt.position().z())) isSigMatched=true;
@@ -791,175 +975,6 @@ TrackValidatorAlgos::etaTransformation(  float EtaParticle , float Zvertex)
 }
 
 void
-TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(int counter, TrackingParticle* tp, const Track* track, int npu)
-{
-
-  bool isMatched = track;
-  double tp_eta = tp->momentum().eta();
-
-  if((*generalTpSignalSelector)(*tp)){
-
-    double weight = 1.;
-    if(useJetWeighting_) weight = getTrackWeight(tp,&(*genJetCollH));
-
-    sim_tracks[counter]+=weight;
-
-    //effic vs eta
-    for(unsigned int f=0; f<etaintervals.size()-1; f++){
-      if(tp_eta>etaintervals[f]&&
-	 tp_eta<etaintervals[f+1]){
-	allSignalTP_eta[counter][f]+=weight;
-	if(isMatched){
-	  assSignalTP_eta[counter][f]+=weight;
-	}
-        break;
-      }
-    } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
-
-    //effic vs pt
-    for(unsigned int f=0; f<ptintervals.size()-1; f++){
-      if(sqrt(tp->momentum().perp2())>ptintervals[f]&&
-	 sqrt(tp->momentum().perp2())<ptintervals[f+1]){
-        allSignalTP_pt[counter][f]+=weight; 
-        if(isMatched){
-	  assSignalTP_pt[counter][f]+=weight;
-        }	
-        break;      
-      }
-    } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
-
-    //effic vs num pileup vertices
-    for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
-      if(npu == vertcountintervals[f]){
-        allSignalTP_npu[counter][f]+=weight;
-        if(isMatched){
-          assSignalTP_npu[counter][f]+=weight;
-        }
-        break;
-      }    
-    }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
-
-  }
-
-
-}
-
-void 
-TrackValidatorAlgos::fill_simAssociated_recoTrack_histos(int counter, const Track& track, bool isMatched, bool isSigMatched, int npu, TpDoubV tp)
-{
-
-  double weight = 1.;
-  if(useJetWeighting_ && isMatched) weight = getTrackWeight(&(*(tp.at(0).first)),&(*genJetCollH));
-
-  //fake rate vs eta
-  for (unsigned int f=0; f<etaintervals.size()-1; f++){
-    if (track.eta()>etaintervals[f]&&
-        track.eta()<etaintervals[f+1]) {
-      allRT_eta[counter][f]+=weight;
-      if (isSigMatched){
-	assSignalRT_eta[counter][f]+=weight;
-      }else{
-        if(isMatched) allAssPURT_eta[counter][f]+=weight;
-      }
-      break;
-    }
-  } // END for (unsigned int f=0; f<etaintervals.size()-1; f++){
-
-  //fake rate vs pt
-  for (unsigned int f=0; f<ptintervals.size()-1; f++){
-    if (sqrt(track.momentum().perp2())>ptintervals[f]&&
-        sqrt(track.momentum().perp2())<ptintervals[f+1]) {
-      allRT_pt[counter][f]+=weight;
-      if (isSigMatched){
-	assSignalRT_pt[counter][f]+=weight;
-      }	  
-      break;    
-    }
-  } // End for (unsigned int f=0; f<ptintervals.size()-1; f++){
-
-  //fake rate vs num pileup vertices
-  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
-    if (npu == vertcountintervals[f]) {
-      allRT_npu[counter][f]+=weight;
-      if (isSigMatched){
-        assSignalRT_npu[counter][f]+=weight;
-      }
-      break;
-    }    
-  }// End for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
-
-
-}
-
-void 
-TrackValidatorAlgos::fill_removedRecoTrack_histos(int counter, const Track& refTrack, bool isSigMatched,  bool isRemoved, int npu, TpDoubV tp)
-{
-
-  double weight = 1.;
-  if(useJetWeighting_) weight = getTrackWeight(&(*(tp.at(0).first)),&(*genJetCollH));
-
-  // vs eta
-  for (unsigned int f=0; f<etaintervals.size()-1; f++){
-    if (refTrack.eta()>etaintervals[f]&&
-        refTrack.eta()<etaintervals[f+1]) {
-      if(isSigMatched){
-        allSigRT_eta[counter][f]+=weight; 
-       }else{
-        allPURT_eta[counter][f]+=weight; 
-      }   
-     if(isRemoved){
-        allRemovedRT_eta[counter][f]+=weight;
-        if(isSigMatched){
-          removedSigRT_eta[counter][f]+=weight;
-        }else{
-          removedPURT_eta[counter][f]+=weight; 
-        }
-      } // END if(isRemoved){
-    } // END if(refTrack.eta()>etaintervals[counter][f]&&refTrack.eta()<etaintervals[counter][f+1){
-  } // END for(unsigned int f=0; f<etaintervals.size()-1; f++){
-
-  // vs pt
-  for (unsigned int f=0; f<ptintervals.size()-1; f++){
-    if (sqrt(refTrack.momentum().perp2())>ptintervals[f]&&
-        sqrt(refTrack.momentum().perp2())<ptintervals[f+1]){
-      if(isSigMatched){
-        allSigRT_pt[counter][f]+=weight; 
-      }else{
-        allPURT_pt[counter][f]+=weight; 
-      }   
-      if(isRemoved){
-        allRemovedRT_pt[counter][f]+=weight;
-        if(isSigMatched){
-          removedSigRT_pt[counter][f]+=weight; 
-        }else{
-	  removedPURT_pt[counter][f]+=weight; 
-        }
-      } // END if(isRemoved){
-    } // END if(sqrt(refTrack.momentum().perp2())>ptintervals[counter][f]&&sqrt(refTrack.momentum().perp2())<ptintervals[counter][f+1]){
-  } // END for(unsigned int f=0; f<ptintervals.size()-1; f++){
-
-  // vs npu
-  for (unsigned int f=0; f<vertcountintervals.size()-1; f++){
-    if (npu == vertcountintervals[f]) {
-      if(isSigMatched){
-        allSigRT_npu[counter][f]+=weight; 
-      }else{
-        allPURT_npu[counter][f]+=weight; 
-      }   
-      if(isRemoved){
-        allRemovedRT_npu[counter][f]+=weight;
-        if(isSigMatched){
-          removedSigRT_npu[counter][f]+=weight;
-        }else{
-  	  removedPURT_npu[counter][f]+=weight; 
-        }
-      } // END if(isRemoved){
-    } // END if(npu == vertcountintervals[counter][f]){
-  } // END for(unsigned int f=0; f<vertcountintervals.size()-1; f++){
-   
-}
-
-void
 TrackValidatorAlgos::fillFractionHistosFromVectors(int counter)
 {
 
@@ -982,6 +997,18 @@ TrackValidatorAlgos::fillFractionHistosFromVectors(int counter)
   fillFractionHisto(PU_fakerate_2_eta[counter],removedSigRT_eta[counter],allSigRT_eta[counter],"effic");
   fillFractionHisto(PU_fakerate_2_pt[counter],removedSigRT_pt[counter],allSigRT_pt[counter],"effic");
   fillFractionHisto(PU_fakerate_2_npu[counter],removedSigRT_npu[counter],allSigRT_npu[counter],"effic");
+
+
+  effic_npu_Contr[counter]->Divide(num_assoc_npu_Contr[counter],num_simul_tracks_npu_Contr[counter]);
+
+  fakerate_npu_Contr_help[counter]->Divide(num_assoc2_npu_Contr[counter],num_reco_tracks_npu_Contr[counter]);
+
+  for(int x_ite=1; x_ite<=nintVertcount; x_ite++){
+    for(int y_ite=1; y_ite<=nintContribution; y_ite++){
+      fakerate_npu_Contr[counter]->SetBinContent(x_ite,y_ite, 1. - fakerate_npu_Contr_help[counter]->GetBinContent(x_ite,y_ite));
+      fakerate_npu_Contr[counter]->SetBinError(x_ite,y_ite,fakerate_npu_Contr_help[counter]->GetBinError(x_ite,y_ite));
+    }
+  }
 
 }
 
@@ -1111,17 +1138,17 @@ TrackValidatorAlgos::fillHistosFromVectorsPF(int counter)
 }
 
 void
-TrackValidatorAlgos::fillPlotFromVector(TH1F* histo,vector<int> vInt)
+TrackValidatorAlgos::fillPlotFromVector(TH1F* histo,vector<double> vIn)
 {
 
-  for(unsigned ite=0; ite<vInt.size();ite++){
-    histo->SetBinContent(ite+1,vInt.at(ite));
+  for(unsigned ite=0; ite<vIn.size();ite++){
+    histo->SetBinContent(ite+1,vIn.at(ite));
   } 
 
 }
 
 void
-TrackValidatorAlgos::fillFractionHisto(TH1F* histo,vector<int> num,vector<int> denum,string type)
+TrackValidatorAlgos::fillFractionHisto(TH1F* histo,vector<double> num,vector<double> denum,string type)
 {
 
   for (unsigned int j=0; j<num.size(); j++){
@@ -1167,25 +1194,53 @@ double
 TrackValidatorAlgos::getTrackWeight(const TrackingParticle* tp, const GenJetCollection* genJetColl)
 {
 
-  	double trackPt = tp->momentum().perp2();
+
+  	double trackP = tp->p();
 
   	for(unsigned jet_ite=0; jet_ite<genJetColl->size(); jet_ite++){
 
     	  GenJetRef jetRef(genJetColl,jet_ite); 
 
-    	  double jetPt = jetRef->pt();
+    	  double jetP = jetRef->p();
 
-	  for (unsigned daught_ite=0; daught_ite<jetRef->numberOfDaughters(); daught_ite++) {
+ 	  vector<const GenParticle*> constituents = jetRef->getGenConstituents();
 
- 	    const GenParticle* constituent = jetRef->getGenConstituent(daught_ite);
+	  for (unsigned const_ite=0; const_ite<constituents.size(); const_ite++) {
 
-	    if(isGenPart(tp,constituent)) return trackPt*1./jetPt;
+	    if(isGenPart(tp,constituents[const_ite])) return trackP*1./jetP;
 
   	  }
 	
   	}
 
-  	return 0.;
+  	return 0.0001;
+
+}
+
+double
+TrackValidatorAlgos::getTrackWeightReco(const Track& track, const PFJetCollection* jetColl)
+{
+
+  	double trackP = track.p();
+
+  	for(unsigned jet_ite=0; jet_ite<jetColl->size(); jet_ite++){
+
+    	  PFJetRef jetRef(jetColl,jet_ite); 
+
+    	  double jetP = jetRef->p();
+
+  	  for (unsigned daugth_ite=0; daugth_ite<jetRef->numberOfDaughters(); daugth_ite++){
+
+    	    const PFCandidatePtr pfcand = jetRef->getPFConstituent(daugth_ite);
+    	    TrackRef trackref = pfcand->trackRef();
+    	    if((trackref.isAvailable()) && (trackref.isNonnull())){
+              if(findRefTrack(track,*trackref)) return trackP*1./jetP;
+    	    }
+  	  }
+	
+  	}
+
+  	return 0.0001;
 
 }
 
@@ -1193,12 +1248,8 @@ bool
 TrackValidatorAlgos::isGenPart(const TrackingParticle* tp, const GenParticle* gp)
 {
 
-	return (
-	  tp->eta() == gp->eta() &&
-	  tp->phi() == gp->phi() &&
-	  tp->mass() == gp->mass() &&
-	  tp->p() == gp->p()
-	);
-
+	return((fabs(tp->momentum().eta() - gp->eta())<0.001) &&
+	       (fabs(tp->momentum().phi() - gp->phi())<0.001) &&
+	       (fabs(1.-(tp->pt() / gp->pt()))<0.01));
 
 }

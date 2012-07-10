@@ -181,12 +181,12 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // fill simulation histograms (LOOP OVER TRACKINGPARTICLES)
     // ########################################################
 
+    unsigned st = 0; 
+
     for (TrackingParticleCollection::size_type tp_ite=0; tp_ite<TPCollectionH->size(); tp_ite++){
 
       TrackingParticleRef tpr(TPCollectionH, tp_ite);
       TrackingParticle* tp=const_cast<TrackingParticle*>(tpr.get());
-
-      TrackValidatorAlgos::fill_generic_simTrack_histos(tcl,tp);
 
       const Track* matchedTrackPointer=0;
       vector<pair<RefToBase<Track>, double> > rt;
@@ -198,7 +198,7 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
-      TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(tcl,tp,matchedTrackPointer,npu);
+      TrackValidatorAlgos::fill_recoAssociated_simTrack_histos(tcl,tp,matchedTrackPointer,npu,&st);
 
     }
 
@@ -212,8 +212,6 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       vector<pair<TrackingParticleRef, double> > tp;
       if(recSimColl.find(track) != recSimColl.end()) tp = recSimColl[track];
-
-      double weight = 1.;
 
       bool isMatched = false;
       bool isSigMatched = false;
@@ -289,7 +287,7 @@ TrackValidator::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // fill independent histograms
     // ###########################
 
-    TrackValidatorAlgos::fill_independent_histos(tcl,npu,trackCollectionH->size()); 
+    TrackValidatorAlgos::fill_independent_histos(tcl,npu,trackCollectionH->size(),st); 
 
   }
 

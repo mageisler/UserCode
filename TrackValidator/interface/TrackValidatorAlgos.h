@@ -16,7 +16,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Fri Feb  3 13:57:40 CET 2012
-// $Id: TrackValidatorAlgos.h,v 1.6 2012/03/22 15:10:16 mgeisler Exp $
+// $Id: TrackValidatorAlgos.h,v 1.7 2012/04/17 13:43:43 mgeisler Exp $
 //
 //
 
@@ -45,6 +45,7 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 
+#include "DataFormats/JetReco/interface/PFJetCollection.h"
 #include "DataFormats/JetReco/interface/GenJetCollection.h"
 
 #include "RecoEgamma/EgammaMCTools/interface/PhotonMCTruthFinder.h"
@@ -53,6 +54,7 @@
 
 // ROOT include files
 #include <TH1F.h>
+#include <TH2F.h>
 
 using namespace std;
 using namespace edm;
@@ -81,11 +83,9 @@ class TrackValidatorAlgos{
 
     void BookHistosPF(TFileDirectory); 
 
-    void fill_independent_histos(int,int,int);
+    void fill_independent_histos(int,int,int,unsigned);
 
-    void fill_generic_simTrack_histos(int,TrackingParticle*);
-
-    void fill_recoAssociated_simTrack_histos(int,TrackingParticle*,const Track*,int);
+    void fill_recoAssociated_simTrack_histos(int,TrackingParticle*,const Track*,int,unsigned*);
 
     void fill_simAssociated_recoTrack_histos(int,const Track&,bool,bool,int,TpDoubV);
 
@@ -102,10 +102,6 @@ class TrackValidatorAlgos{
 
     bool findRefTrack(const Track&,const Track&);
 
-    double getTrackWeight(const TrackingParticle*, const GenJetCollection*);
-
-    bool isGenPart(const TrackingParticle*, const GenParticle*);
-
  protected:
   //protected functions 
 
@@ -115,15 +111,21 @@ class TrackValidatorAlgos{
   void setUpVectors();
   void setUpVectorsPF();
 
-  void fillPlotFromVector(TH1F*,vector<int>);
+  void fillPlotFromVector(TH1F*,vector<double>);
 
-  void fillFractionHisto(TH1F*,vector<int>,vector<int>,string);
+  void fillFractionHisto(TH1F*,vector<double>,vector<double>,string);
 
   bool photonMatching(float, float, float, PFCandidate);
 
   bool photonSelector(PhotonMCTruth,SimVertex);
 
   float etaTransformation(float, float);
+
+  double getTrackWeight(const TrackingParticle*, const GenJetCollection*);
+
+  double getTrackWeightReco(const Track&, const PFJetCollection*);
+
+  bool isGenPart(const TrackingParticle*, const GenParticle*);
 
 
   //private data members  
@@ -132,8 +134,10 @@ class TrackValidatorAlgos{
 
   bool useJetWeighting_;
   string genJetCollLabel_;
+  string jetCollLabel_;
 
   Handle<GenJetCollection> genJetCollH;
+  Handle<PFJetCollection> jetCollH;
 
   TrackingParticleSelector* generalTpSignalSelector;
   TrackingParticleSelector* generalTpPUSelector;
@@ -144,6 +148,7 @@ class TrackValidatorAlgos{
   double minpt, maxpt;  int nintpt;
   double minVertcount, maxVertcount;  int nintVertcount;
   double minTrackcount, maxTrackcount;  int nintTrackcount;
+  double minContribution, maxContribution;  int nintContribution;
 
   //parameters for the photon selector
 
@@ -156,6 +161,12 @@ class TrackValidatorAlgos{
   // ###########
 
   // track collection
+
+  vector<TH2F*> effic_npu_Contr; 
+  vector<TH2F*> num_simul_tracks_npu_Contr; vector<TH2F*> num_assoc_npu_Contr;
+
+  vector<TH2F*> fakerate_npu_Contr; vector<TH2F*> fakerate_npu_Contr_help;
+  vector<TH2F*> num_reco_tracks_npu_Contr; vector<TH2F*> num_assoc2_npu_Contr;
 
   vector<TH1F*> PU_effic_eta; vector<TH1F*> PU_effic_pt; vector<TH1F*> PU_effic_npu;
 
@@ -191,6 +202,8 @@ class TrackValidatorAlgos{
   vector<TH1F*> num_track_reco_PU_eta; vector<TH1F*> num_track_reco_signal_eta;
   vector<TH1F*> num_track_reco_PU_pt; vector<TH1F*> num_track_reco_signal_pt;
   vector<TH1F*> num_track_reco_PU_npu; vector<TH1F*> num_track_reco_signal_npu;
+
+  vector<TH1F*> weights;
 
 
   // particle flow collection
@@ -243,41 +256,41 @@ class TrackValidatorAlgos{
 
   // track collection
 
-  vector< vector<int> > allSignalTP_eta, allRT_eta;
-  vector< vector<int> > allSignalTP_npu, allRT_npu;
-  vector< vector<int> > allSignalTP_pt,  allRT_pt;
+  vector< vector<double> > allSignalTP_eta, allRT_eta;
+  vector< vector<double> > allSignalTP_npu, allRT_npu;
+  vector< vector<double> > allSignalTP_pt,  allRT_pt;
 
-  vector< vector<int> > assSignalTP_eta, assSignalTP_npu, assSignalTP_pt;
-  vector< vector<int> > assSignalRT_eta, assSignalRT_npu, assSignalRT_pt;
+  vector< vector<double> > assSignalTP_eta, assSignalTP_npu, assSignalTP_pt;
+  vector< vector<double> > assSignalRT_eta, assSignalRT_npu, assSignalRT_pt;
 
-  vector< vector<int> > allSigRT_eta, allPURT_eta, allAssPURT_eta;
-  vector< vector<int> > allSigRT_pt,  allPURT_pt;
-  vector< vector<int> > allSigRT_npu, allPURT_npu;
+  vector< vector<double> > allSigRT_eta, allPURT_eta, allAssPURT_eta;
+  vector< vector<double> > allSigRT_pt,  allPURT_pt;
+  vector< vector<double> > allSigRT_npu, allPURT_npu;
 
-  vector< vector<int> > allRemovedRT_eta, allRemovedRT_npu, allRemovedRT_pt;
-  vector< vector<int> > removedSigRT_eta, removedSigRT_npu, removedSigRT_pt;
-  vector< vector<int> > removedPURT_eta,  removedPURT_npu,  removedPURT_pt;
+  vector< vector<double> > allRemovedRT_eta, allRemovedRT_npu, allRemovedRT_pt;
+  vector< vector<double> > removedSigRT_eta, removedSigRT_npu, removedSigRT_pt;
+  vector< vector<double> > removedPURT_eta,  removedPURT_npu,  removedPURT_pt;
 
   vector<int> sim_tracks;
 
 
   // particle flow collection
 
-  vector< vector<int> > allSignalPhoton_eta, allRecoPhoton_eta;
-  vector< vector<int> > allSignalPhoton_npu, allRecoPhoton_npu;
-  vector< vector<int> > allSignalPhoton_pt, allRecoPhoton_pt;
+  vector< vector<double> > allSignalPhoton_eta, allRecoPhoton_eta;
+  vector< vector<double> > allSignalPhoton_npu, allRecoPhoton_npu;
+  vector< vector<double> > allSignalPhoton_pt, allRecoPhoton_pt;
 
-  vector< vector<int> > assSignalPhoton_eta, signalRecoPhoton_eta;
-  vector< vector<int> > assSignalPhoton_npu, signalRecoPhoton_npu;
-  vector< vector<int> > assSignalPhoton_pt, signalRecoPhoton_pt;
+  vector< vector<double> > assSignalPhoton_eta, signalRecoPhoton_eta;
+  vector< vector<double> > assSignalPhoton_npu, signalRecoPhoton_npu;
+  vector< vector<double> > assSignalPhoton_pt, signalRecoPhoton_pt;
 
-  vector< vector<int> > removedPURecoPhoton_eta, removedPURecoPhoton_npu, removedPURecoPhoton_pt;
-  vector< vector<int> > allPURecoPhoton_eta, allPURecoPhoton_pt, allPURecoPhoton_npu;
+  vector< vector<double> > removedPURecoPhoton_eta, removedPURecoPhoton_npu, removedPURecoPhoton_pt;
+  vector< vector<double> > allPURecoPhoton_eta, allPURecoPhoton_pt, allPURecoPhoton_npu;
 
-  vector< vector<int> > removedSignalRecoPhoton_eta, removedSignalRecoPhoton_npu;
-  vector< vector<int> > removedSignalRecoPhoton_pt;
-  vector< vector<int> > allRemovedRecoPhoton_eta, allRemovedRecoPhoton_npu, allRemovedRecoPhoton_pt;
-  vector< vector<int> > allSignalRecoPhoton_eta, allSignalRecoPhoton_npu, allSignalRecoPhoton_pt;
+  vector< vector<double> > removedSignalRecoPhoton_eta, removedSignalRecoPhoton_npu;
+  vector< vector<double> > removedSignalRecoPhoton_pt;
+  vector< vector<double> > allRemovedRecoPhoton_eta, allRemovedRecoPhoton_npu, allRemovedRecoPhoton_pt;
+  vector< vector<double> > allSignalRecoPhoton_eta, allSignalRecoPhoton_npu, allSignalRecoPhoton_pt;
 
 };
 
