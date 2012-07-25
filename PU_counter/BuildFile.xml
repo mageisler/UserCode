@@ -5,6 +5,3 @@
 <use name="FWCore/ServiceRegistry"/>
 <use name="SimDataFormats/PileupSummaryInfo"/>
 <flags EDM_PLUGIN="1"/>
-<export>
-   <lib name="1"/>
-</export>

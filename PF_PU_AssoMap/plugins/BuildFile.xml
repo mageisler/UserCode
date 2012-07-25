@@ -14,12 +14,12 @@
 <use name="SimTracker/TrackAssociation"/>
 <use name="SimTracker/Records"/>
 <use name="DQMServices/Core"/>
-<use name="MGeisler/PF_PU_AssoMap"/>
+<use name="CommonTools/RecoUtils"/>
 <use name="DataFormats/BeamSpot"/>
 <use name="TrackingTools/TransientTrack"/>
 <use name="TrackingTools/IPTools"/>
 <use name="MagneticField/Records"/>
 <use name="MagneticField/Engine"/>
-<library   file="*.cc" name="PFPUAssoMapPlugins">
+<library   file="*.cc" name="VertexTracksPlugins">
   <flags   EDM_PLUGIN="1"/>
 </library>
