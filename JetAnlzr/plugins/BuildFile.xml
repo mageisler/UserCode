@@ -1,0 +1,26 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/PluginManager"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/ServiceRegistry"/>
+<use name="CommonTools/UtilAlgos"/>
+<use name="DataFormats/BeamSpot"/>
+<use name="DataFormats/JetReco"/>
+<use name="DataFormats/Common"/>
+<use name="DataFormats/TrackReco"/>
+<use name="DataFormats/VertexReco"/>
+<use name="DataFormats/EgammaCandidates"/>
+<use name="DataFormats/RecoCandidate"/>
+<use name="DataFormats/ParticleFlowReco"/>
+<use name="SimDataFormats/TrackingAnalysis"/>
+<use name="SimDataFormats/PileupSummaryInfo"/>
+<use name="SimDataFormats/GeneratorProducts"/>
+<use name="SimTracker/TrackAssociation"/>
+<use name="SimTracker/Records"/>
+<use name="DQMServices/Core"/>
+<use name="TrackingTools/TransientTrack"/>
+<use name="TrackingTools/IPTools"/>
+<use name="MagneticField/Records"/>
+<use name="MagneticField/Engine"/>
+<library   file="*.cc" name="JetAnlzrPlugins">
+  <flags   EDM_PLUGIN="1"/>
+</library>
