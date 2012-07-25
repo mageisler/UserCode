@@ -13,11 +13,9 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Tue Oct 18 16:24:26 CEST 2011
-// $Id$
+// $Id: VertexTracks.cc,v 1.1 2011/11/16 16:56:09 mgeisler Exp $
 //
 //
-#include "MGeisler/PF_PU_AssoMap/interface/PF_PU_AssoMap.h"
-
 
 // system include files
 #include <memory>
@@ -58,14 +56,7 @@ class VertexTracks : public edm::EDProducer {
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
    private:
-      virtual void beginJob() ;
       virtual void produce(edm::Event&, const edm::EventSetup&);
-      virtual void endJob() ;
-      
-      virtual void beginRun(edm::Run&, edm::EventSetup const&);
-      virtual void endRun(edm::Run&, edm::EventSetup const&);
-      virtual void beginLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
-      virtual void endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
 
       // ----------member data ---------------------------
 
@@ -129,10 +120,9 @@ VertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	//get the input vertex collection
   	Handle<VertexCollection> vtxcollH;
   	iEvent.getByLabel(input_VertexCollection_,vtxcollH);
- 	VertexRefV* qualvtxcoll = PF_PU_AssoMapAlgos::QualifiedVertices(vtxcollH,true,4.);
 	
 	//get first vertex from the qualified VertexCollection
-        const VertexRef firstvertexref = qualvtxcoll->at(0);
+        const VertexRef firstvertexref(vtxcollH,0);
 	  	
 	//loop over all tracks in the track collection	
   	for(unsigned int index_trck = 0;  index_trck < trkcollH->size(); ++index_trck) {
@@ -158,41 +148,6 @@ VertexTracks::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	iEvent.put( firstvertextracks );
  
-}
-
-// ------------ method called once each job just before starting event loop  ------------
-void 
-VertexTracks::beginJob()
-{
-}
-
-// ------------ method called once each job just after ending the event loop  ------------
-void 
-VertexTracks::endJob() {
-}
-
-// ------------ method called when starting to processes a run  ------------
-void 
-VertexTracks::beginRun(edm::Run&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when ending the processing of a run  ------------
-void 
-VertexTracks::endRun(edm::Run&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when starting to processes a luminosity block  ------------
-void 
-VertexTracks::beginLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when ending the processing of a luminosity block  ------------
-void 
-VertexTracks::endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&)
-{
 }
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------

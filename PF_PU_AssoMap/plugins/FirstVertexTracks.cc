@@ -13,7 +13,7 @@
 //
 // Original Author:  Matthias Geisler,32 4-B20,+41227676487,
 //         Created:  Mon Apr 11 17:36:26 CEST 2011
-// $Id: FirstVertexTracks.cc,v 1.6 2011/06/01 13:15:47 mgeisler Exp $
+// $Id: FirstVertexTracks.cc,v 1.7 2011/09/06 14:01:55 mgeisler Exp $
 //
 //
 
@@ -73,16 +73,9 @@ class FirstVertexTracks : public edm::EDProducer {
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
    private:
-      virtual void beginJob() ;
       virtual void produce(edm::Event&, const edm::EventSetup&);
       virtual bool TrackMatch(reco::TrackRef,reco::TrackRef);
       virtual bool GsfTrackMatch(reco::GsfElectronRef,reco::GsfElectronRef);
-      virtual void endJob() ;
-      
-      virtual void beginRun(edm::Run&, edm::EventSetup const&);
-      virtual void endRun(edm::Run&, edm::EventSetup const&);
-      virtual void beginLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
-      virtual void endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&);
 
       // ----------member data ---------------------------
 
@@ -131,13 +124,6 @@ FirstVertexTracks::~FirstVertexTracks()
    // do anything here that needs to be done at desctruction time
    // (e.g. close files, deallocate resources etc.)
 
-}
-
-
-// ------------ method called once each job just before starting event loop  ------------
-void 
-FirstVertexTracks::beginJob()
-{
 }
 
 
@@ -319,36 +305,6 @@ FirstVertexTracks::GsfTrackMatch(reco::GsfElectronRef gsfref1,reco::GsfElectronR
 	  (*gsfref1).p() == (*gsfref2).p()
 	);
 
-}
-
-// ------------ method called once each job just after ending the event loop  ------------
-void 
-FirstVertexTracks::endJob() {
-  
-}
-
-// ------------ method called when starting to processes a run  ------------
-void 
-FirstVertexTracks::beginRun(edm::Run&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when ending the processing of a run  ------------
-void 
-FirstVertexTracks::endRun(edm::Run&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when starting to processes a luminosity block  ------------
-void 
-FirstVertexTracks::beginLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&)
-{
-}
-
-// ------------ method called when ending the processing of a luminosity block  ------------
-void 
-FirstVertexTracks::endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&)
-{
 }
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
