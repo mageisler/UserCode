@@ -291,24 +291,34 @@ def GetCombinedTH1FsWeight5D(histos,names):
         histo_output = ()
 	
 	weight = 1.
+	
+	dim1 = len(histos[0])
+	dim2 = len(histos[0][0])
+	dim3 = len(histos[0][0][0])
+	dim4 = len(histos[0][0][0][0])
+	dim5 = len(histos[0][0][0][0][0])
+	
+	overall = (dim1*dim2*dim3*dim4*dim5)*1./20.
+	step = overall
+	counter = 0
     
-        for ite1 in range(len(histos[0])):
+        for ite1 in range(dim1):
     
             op_histo_1 = ()
 	    
-            for ite2 in range(len(histos[0][0])):
+            for ite2 in range(dim2):
     
                 op_histo_2 = ()
 	    
-                for ite3 in range(len(histos[0][0][0])):
+                for ite3 in range(dim3):
     
                     op_histo_3 = ()
 	    
-                    for ite4 in range(len(histos[0][0][0][0])):
+                    for ite4 in range(dim4):
     
                         op_histo_4 = ()
 	    
-                        for ite5 in range(len(histos[0][0][0][0][0])):
+                        for ite5 in range(dim5):
   
   	                    x_bin_number = histos[0][ite1][ite2][ite3][ite4][ite5].GetNbinsX()
   	                    x_min = histos[0][ite1][ite2][ite3][ite4][ite5].GetXaxis().GetBinLowEdge(1)
@@ -321,8 +331,6 @@ def GetCombinedTH1FsWeight5D(histos,names):
 	                    entries_help = 0
 	    
                             for file_ite in range(len(histos)):
-				
-			        print ".",
 	    
 	                        name = names[file_ite]
         	
@@ -331,31 +339,30 @@ def GetCombinedTH1FsWeight5D(histos,names):
 	                                weight = weights[spectrum]
 	    
                                 for x_bin_ite in range(x_bin_number):
-			            entries_help+= histos[0][ite1][ite2][ite3][ite4][ite5].GetBinContent(x_bin_ite+1)
-   	                            addOn = histos[0][ite1][ite2][ite3][ite4][ite5].GetBinContent(x_bin_ite+1)*weight
+			            entries_help+= histos[file_ite][ite1][ite2][ite3][ite4][ite5].GetBinContent(x_bin_ite+1)
+   	                            addOn = histos[file_ite][ite1][ite2][ite3][ite4][ite5].GetBinContent(x_bin_ite+1)*weight
 		                    new = op_histo.GetBinContent(x_bin_ite+1) + addOn
 		                    op_histo.SetBinContent(x_bin_ite+1,new)		
 			
 	                    op_histo.SetEntries(entries_help)			
 	    				    
   		            op_histo_4+=op_histo,
+			    
+			    counter+= 1
   				
-			    print ""	
+			    if(counter>overall):
+			        print " = ",
+				overall+= step	
 	    				    
-  		        op_histo_3+=op_histo_4,
-				
-			print ""			
+  		        op_histo_3+=op_histo_4,			
 	    				    
-  		    op_histo_2+=op_histo_3,
-				
-	            print ""		
+  		    op_histo_2+=op_histo_3,		
 	    				    
-  		op_histo_1+=op_histo_2,
-				
-	        print ""	
+  		op_histo_1+=op_histo_2,	
 		 
             histo_output+=op_histo_1,
 		    
+ 	print ""
 		    		    
 	return  histo_output
 	        
@@ -480,6 +487,15 @@ def GetCombinedTH2FsWeight4D(histos,names):
         histo_output = ()
 	
 	weight = 1.
+	
+	dim1 = len(histos[0])
+	dim2 = len(histos[0][0])
+	dim3 = len(histos[0][0][0])
+	dim4 = len(histos[0][0][0][0])
+	
+	overall = (dim1*dim2*dim3*dim4)*1./20.
+	step = overall
+	counter = 0
     
         for ite1 in range(len(histos[0])):
     
@@ -515,8 +531,6 @@ def GetCombinedTH2FsWeight4D(histos,names):
 	                entries_help = 0
 	    
                         for file_ite in range(len(histos)):
-				
-			    print ".",
 	    
 	                    name = names[file_ite]
         	
@@ -526,29 +540,29 @@ def GetCombinedTH2FsWeight4D(histos,names):
 	    
                             for x_bin_ite in range(x_bin_number):
                                 for y_bin_ite in range(y_bin_number):
-			          entries_help+= histos[0][ite1][ite2][ite3][ite4].GetBinContent(x_bin_ite+1,y_bin_ite+1)
-   	                          addOn = histos[0][ite1][ite2][ite3][ite4].GetBinContent(x_bin_ite+1,y_bin_ite+1)*weight
+			          entries_help+= histos[file_ite][ite1][ite2][ite3][ite4].GetBinContent(x_bin_ite+1,y_bin_ite+1)
+   	                          addOn = histos[file_ite][ite1][ite2][ite3][ite4].GetBinContent(x_bin_ite+1,y_bin_ite+1)*weight
 		                  new = op_histo.GetBinContent(x_bin_ite+1,y_bin_ite+1) + addOn
 		                  op_histo.SetBinContent(x_bin_ite+1,y_bin_ite+1,new)		
 			
 	                op_histo.SetEntries(entries_help)			
 	    				    
   		        op_histo_3+=op_histo,
-				
-			print "/ ",			
+			    
+			counter+= 1
+  			
+			if(counter>overall):
+			    print " = ",
+			    overall+= step			
 	    				    
-  		    op_histo_2+=op_histo_3,
-				
-	            print ""		
+  		    op_histo_2+=op_histo_3,	
 	    				    
-  		op_histo_1+=op_histo_2,
-				
-	        print ""	
-	        print ""	
+  		op_histo_1+=op_histo_2,	
 		 
             histo_output+=op_histo_1,
 		    
-		    		    
+	print ""
+				    
 	return  histo_output
 	        
 		
@@ -945,7 +959,7 @@ def DrawTH1Fs(histos,savename,maximize=False,permutize=False,pointer=False,legen
   
     canv = ROOT.TCanvas(canv_name,"Guck mal",10,10,1200,850)
     ROOT.gStyle.SetNumberContours(255)
-    ROOT.gStyle.SetTitleX(0.1)
+    ROOT.gStyle.SetTitleX(0.2)
     ROOT.gStyle.SetTitleY(0.93)
     ROOT.gStyle.SetTitleW(1.)
     if legend:
