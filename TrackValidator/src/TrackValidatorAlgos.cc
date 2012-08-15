@@ -58,7 +58,7 @@ TrackValidatorAlgos::TrackValidatorAlgos(const edm::ParameterSet& iConfig)
   //parameters for Pileup plots
   minVertcount  = -0.5;
   maxVertcount  = 59.5;
-  nintVertcount = 56;
+  nintVertcount = 60;
   
   //parameters for track number plots
   minTrackcount  = -0.5;
